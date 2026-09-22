@@ -1,0 +1,8 @@
+{
+  "name": "SIGEP",
+  "description": "SIGEP - Plataforma Inteligente de Gestão Estratégica e Projeção Académica. SIGEP - Moçambique V1.1.2.0 SISTEMA INTEGRADO DE GESTÃO DE PROCESSOS © 2026",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
