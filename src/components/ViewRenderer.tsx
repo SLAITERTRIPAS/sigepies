@@ -14,10 +14,10 @@ import { RefreshCw, X, Loader2 } from "lucide-react";
 import { isSuperBossUser, getUserWorkspace } from "../lib/auth";
 import { lazyRetry } from "../lib/utils";
 import { setActiveInstituicaoId, getActiveInstituicao } from "../lib/instituicaoEstruturaService";
-import SistemaView from "../blocos/bloco5_sistema/SistemaView";
+const SistemaView = lazy(() => lazyRetry(() => import("../blocos/bloco5_sistema/SistemaView")));
 import SystemPresentation from "./SystemPresentation";
 
-import DirectorDashboard from "../blocos/bloco2_orgaos_gestao/DirectorDashboard";
+const DirectorDashboard = lazy(() => lazyRetry(() => import("../blocos/bloco2_orgaos_gestao/DirectorDashboard")));
 const ReposicaoTesteView = lazy(() => lazyRetry(() => import("../blocos/bloco3_unidades_organicas/ReposicaoTesteView")));
 const WorkflowRequisicaoView = lazy(() => lazyRetry(() => import("../blocos/bloco5_sistema/WorkflowRequisicaoView")));
 const MatrixView = lazy(() => lazyRetry(() => import("../blocos/bloco5_sistema/MatrixView")));
@@ -42,6 +42,7 @@ const MonografiaView = lazy(() => lazyRetry(() => import("../blocos/bloco3_unida
 const GestaoPatrimonialView = lazy(() => lazyRetry(() => import("../blocos/bloco4_servicos_centrais/GestaoPatrimonialView")));
 const DocumentosView = lazy(() => lazyRetry(() => import("../blocos/bloco6_documentos/DocumentosView")));
 const ReportsView = lazy(() => lazyRetry(() => import("../blocos/bloco7_relatorios/ReportsView")));
+const RelatorioAcessoIndevidoView = lazy(() => lazyRetry(() => import("../blocos/bloco7_relatorios/RelatorioAcessoIndevidoView")));
 const AssinaturaDigitalView = lazy(() => lazyRetry(() => import("../blocos/bloco5_sistema/AssinaturaDigitalView")));
 const EconomatoView = lazy(() => lazyRetry(() => import("../blocos/bloco4_servicos_centrais/EconomatoView")));
 const RegistarFuncionarioForm = lazy(() => lazyRetry(() => import("../blocos/bloco8_gerais/RegistarFuncionarioForm")));
@@ -520,6 +521,7 @@ const ViewRendererInner: React.FC<ViewRendererProps> = ({
           onUpdateMatrixActivity={(id, data) => firestoreService.matrixActivities.update(id, data)}
           suppliers={suppliers}
           processos={processos}
+          serviceRequests={serviceRequests}
           onPathChange={setInnerPath}
           setDashboardTitle={setDashboardTitle}
         />
@@ -648,7 +650,7 @@ const ViewRendererInner: React.FC<ViewRendererProps> = ({
         <UGEA_SupplierRegistrationForm
           onBack={() => (onSetView ? onSetView("supplier_management") : goBack())}
           onSubmit={async (s) => {
-            await firestoreService.suppliers.add(s);
+            await firestoreService.suppliers.set(s.id, s);
             if (onShowAlert) {
               onShowAlert("Fornecedor registado com sucesso!", "success");
             }
@@ -702,6 +704,15 @@ const ViewRendererInner: React.FC<ViewRendererProps> = ({
         <div className="flex flex-col h-full bg-slate-50">
           <div className="flex-1 overflow-auto">
             <ReportsView user={extendedUser} onShowAlert={onShowAlert} initialDirection="Geral" onBack={goBack} />
+          </div>
+        </div>
+      );
+
+    case "relatorio_acessos":
+      return (
+        <div className="flex flex-col h-full bg-slate-50">
+          <div className="flex-1 overflow-auto">
+            <RelatorioAcessoIndevidoView user={extendedUser} onShowAlert={onShowAlert} onBack={goBack} />
           </div>
         </div>
       );

@@ -149,7 +149,11 @@ export default function UGEA_SupplierManagementView({
           </button>
 
           <button
-            onClick={onAddSupplier}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddSupplier();
+            }}
             className="flex items-center gap-2 bg-[#121c60] hover:bg-[#0e164d] text-white px-5 py-2.5 rounded-xl font-black text-xs tracking-wider shadow-md transition-all"
           >
             <Plus size={18} /> Novo Registo de Fornecedor

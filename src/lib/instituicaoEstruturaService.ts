@@ -1039,15 +1039,31 @@ export function getDepartamentosPorDirecao(direcaoNome?: string, instituicaoId?:
 }
 
 /**
- * Obter Repartições / Setores de um Departamento a partir da Gestão das Instituições
+ * Obter Repartições / Setores de um Departamento a partir da Gestão das Instituições (com escopo estrito de Direção)
  */
-export function getReparticoesPorDepartamento(departamentoNome?: string, instituicaoId?: string): string[] {
+export function getReparticoesPorDepartamento(departamentoNome?: string, direcaoNomeOrInstId?: string, instituicaoId?: string): string[] {
   if (!departamentoNome) return [];
-  const orgaos = getOrgaosFromGestaoInstituicoes(instituicaoId);
+  let instId = instituicaoId;
+  let dirName = direcaoNomeOrInstId;
+  if (direcaoNomeOrInstId && (direcaoNomeOrInstId.startsWith("inst_") || direcaoNomeOrInstId === "isps")) {
+    instId = direcaoNomeOrInstId;
+    dirName = undefined;
+  }
+
+  const orgaos = getOrgaosFromGestaoInstituicoes(instId);
   const cleanDept = departamentoNome.trim().toLowerCase();
+  const cleanDir = dirName ? dirName.trim().toLowerCase() : "";
 
   for (const org of orgaos) {
     for (const dir of org.direcoes) {
+      if (cleanDir) {
+        const dirMatch =
+          dir.nome.toLowerCase() === cleanDir ||
+          dir.rawTitle.toLowerCase() === cleanDir ||
+          dir.nome.toLowerCase().includes(cleanDir) ||
+          cleanDir.includes(dir.rawTitle.toLowerCase());
+        if (!dirMatch) continue;
+      }
       for (const dept of dir.departamentos) {
         const match =
           dept.nome.toLowerCase() === cleanDept ||

@@ -953,11 +953,95 @@ export const databaseMaintenance = {
       const actRes = await this.removeDuplicateActivitiesAndFixNumbering();
       results.activitiesRemoved = actRes.deletedCount;
 
+      // 8. Chamar remoção estrita de duplicados de colaboradores e utilizadores
+      const dupRes = await this.removeDuplicateCollaboratorsAndUsers();
+      (results as any).usersRemoved = dupRes.userRemovedCount;
+      (results as any).colaboradoresRemoved = dupRes.colRemovedCount;
+
       console.log("Limpeza profunda concluída com sucesso:", results);
       return results;
     } catch (err) {
       console.error("Erro na limpeza profunda:", err);
       throw err;
+    }
+  },
+
+  async removeDuplicateCollaboratorsAndUsers() {
+    console.log("Iniciando remoção rigorosa de duplicados de colaboradores e utilizadores em todo o sistema...");
+    try {
+      // 1. Deduplicar users
+      const usersSnap = await getDocs(collection(db, "users"));
+      const usersMap = new Map<string, any[]>();
+      usersSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const emailKey = data.email ? String(data.email).toLowerCase().trim() : "";
+        const nuitKey = data.nuit ? String(data.nuit).trim() : "";
+        const primaryKey = emailKey || nuitKey || docSnap.id;
+        if (!usersMap.has(primaryKey)) {
+          usersMap.set(primaryKey, []);
+        }
+        usersMap.get(primaryKey)!.push({ id: docSnap.id, ...data });
+      });
+
+      let userRemovedCount = 0;
+      for (const [key, group] of usersMap.entries()) {
+        if (group.length > 1) {
+          group.sort((a, b) => {
+            const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+            const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+            return bTime - aTime;
+          });
+          const duplicates = group.slice(1);
+          for (const dup of duplicates) {
+            try {
+              await deleteDoc(doc(db, "users", dup.id));
+              userRemovedCount++;
+            } catch (e) {
+              console.warn("Erro ao eliminar duplicado user:", dup.id, e);
+            }
+          }
+        }
+      }
+
+      // 2. Deduplicar colaboradores
+      const colSnap = await getDocs(collection(db, "colaboradores"));
+      const colMap = new Map<string, any[]>();
+      colSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const emailKey = data.email ? String(data.email).toLowerCase().trim() : "";
+        const nuitKey = data.nuit ? String(data.nuit).trim() : "";
+        const primaryKey = emailKey || nuitKey || docSnap.id;
+        if (!colMap.has(primaryKey)) {
+          colMap.set(primaryKey, []);
+        }
+        colMap.get(primaryKey)!.push({ id: docSnap.id, ...data });
+      });
+
+      let colRemovedCount = 0;
+      for (const [key, group] of colMap.entries()) {
+        if (group.length > 1) {
+          group.sort((a, b) => {
+            const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+            const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+            return bTime - aTime;
+          });
+          const duplicates = group.slice(1);
+          for (const dup of duplicates) {
+            try {
+              await deleteDoc(doc(db, "colaboradores", dup.id));
+              colRemovedCount++;
+            } catch (e) {
+              console.warn("Erro ao eliminar duplicado colaborador:", dup.id, e);
+            }
+          }
+        }
+      }
+
+      console.log(`Deduplicação concluída: ${userRemovedCount} utilizadores duplicados e ${colRemovedCount} colaboradores duplicados removidos.`);
+      return { userRemovedCount, colRemovedCount };
+    } catch (err) {
+      console.error("Erro ao remover duplicados de colaboradores e utilizadores:", err);
+      return { userRemovedCount: 0, colRemovedCount: 0 };
     }
   }
 };

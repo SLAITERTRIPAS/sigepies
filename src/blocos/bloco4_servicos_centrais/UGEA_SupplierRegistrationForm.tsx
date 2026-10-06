@@ -107,28 +107,45 @@ export default function UGEA_SupplierRegistrationForm({
     e.preventDefault();
     if (isReadOnly) return;
 
-    try {
-      setIsSaving(true);
-      const finalSupplier: Supplier = {
-        id: initialData?.id || Math.random().toString(36).substring(2, 11),
-        nome: formData.razaoSocial || formData.nomeFantasia || "Empresa sem Nome",
-        tipoServico: formData.categoriaPrincipal || "Fornecimento Geral",
-        contacto: formData.telefone || formData.repTelefone || "",
-        email: formData.email || formData.repEmail || "",
-        validadeContrato:
-          initialData?.validadeContrato ||
-          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        dataRegisto: initialData?.dataRegisto || new Date().toISOString().split("T")[0],
-        ...formData,
-      };
+      try {
+        setIsSaving(true);
+        
+        // Validação de duplicidade antes de prosseguir
+        const exists = await firestoreService.checkSupplierExists(formData.nif, formData.razaoSocial || formData.nomeFantasia || "");
+        if (exists) {
+          alert("Já existe um fornecedor registado com este NIF ou Razão Social!");
+          setIsSaving(false);
+          return;
+        }
 
-      await onSubmit(finalSupplier);
-      clearDraft();
-      setSaveSuccess(true);
-      setTimeout(() => {
-        setSaveSuccess(false);
-      }, 2000);
-    } catch (err) {
+        // Gerar um ID determinístico baseado no nome e NIF, ou usar o ID existente se for uma edição
+        const supplierId = initialData?.id || 
+                           (formData.razaoSocial || formData.nomeFantasia 
+                             ? `${(formData.razaoSocial || formData.nomeFantasia || 'empresa').substring(0, 10).replace(/\s/g, '_')}_${formData.nif || Date.now()}`.toLowerCase() 
+                             : `supp_${Date.now()}`);
+
+        const finalSupplier: Supplier = {
+          id: supplierId,
+          nome: formData.razaoSocial || formData.nomeFantasia || "Empresa sem Nome",
+          tipoServico: formData.categoriaPrincipal || "Fornecimento Geral",
+          contacto: formData.telefone || formData.repTelefone || "",
+          email: formData.email || formData.repEmail || "",
+          validadeContrato:
+            initialData?.validadeContrato ||
+            new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          dataRegisto: initialData?.dataRegisto || new Date().toISOString().split("T")[0],
+          ...formData,
+        };
+
+        // Passar a função de submit que utiliza setDoc com merge: true
+        await onSubmit(finalSupplier);
+        
+        clearDraft();
+        setSaveSuccess(true);
+        setTimeout(() => {
+          setSaveSuccess(false);
+        }, 2000);
+      } catch (err) {
       console.error("Erro ao gravar fornecedor:", err);
     } finally {
       setIsSaving(false);

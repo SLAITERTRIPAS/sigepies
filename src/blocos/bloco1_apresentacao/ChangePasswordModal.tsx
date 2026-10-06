@@ -92,20 +92,23 @@ export default function ChangePasswordModal({
         user.isFirstAccess = false;
         user.senhaPadraoBloqueada = true;
 
+        console.log(`[Diagnostic] Alterando senha para ${uniqueDocIds.size} documentos em 'users'.`);
         // Atualizar todos os documentos identificados em paralelo na coleção 'users'
         await Promise.all(
-          Array.from(uniqueDocIds).map((docId) =>
-            updateDoc(doc(db, "users", docId), {
+          Array.from(uniqueDocIds).map((docId) => {
+            console.log(`[Diagnostic] Atualizando doc ${docId}: mustChangePassword: false`);
+            return updateDoc(doc(db, "users", docId), {
               password: newPassword,
               passwordHash: passwordHash,
               passwordExpired: false,
               mustChangePassword: false,
               isFirstAccess: false,
               senhaPadraoBloqueada: true,
+              updatedAt: new Date().toISOString(),
             }).catch((err) =>
               console.warn(`Erro ao atualizar doc ${docId}:`, err),
-            ),
-          ),
+            );
+          }),
         );
 
         // Invalida sessão antiga

@@ -22,6 +22,20 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       // REGRA FIXA DO SISTEMA: Esta capacidade NUNCA deve ser alterada sem autorização explícita do utilizador.
       chunkSizeWarningLimit: 2000000,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("node_modules")) {
+              if (id.includes("firebase")) return "vendor-firebase";
+              if (id.includes("jspdf") || id.includes("pdfjs-dist") || id.includes("html2pdf.js")) return "vendor-pdf";
+              if (id.includes("xlsx")) return "vendor-xlsx";
+              if (id.includes("recharts") || id.includes("d3")) return "vendor-charts";
+              if (id.includes("lucide-react")) return "vendor-icons";
+              if (id.includes("react") || id.includes("react-dom") || id.includes("motion")) return "vendor-react";
+            }
+          },
+        },
+      },
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

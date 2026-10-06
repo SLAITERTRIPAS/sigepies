@@ -39,10 +39,14 @@ import { firestoreService } from "../../lib/firestoreService";
 import SigepLogo from "../../components/SigepLogo";
 import { getActiveInstituicao, getActiveInstituicaoId, setActiveInstituicaoId } from "../../lib/instituicaoEstruturaService";
 import { getSystemLogo } from "../../lib/logoService";
+import GlobalSearch from "../../components/GlobalSearch";
 
 interface MainHeaderProps {
   user?: any;
   colaboradores?: any[];
+  processos?: any[];
+  matrixActivities?: any[];
+  instituicoes?: any[];
   onBack?: () => void;
   onLogout?: () => void;
   showBack?: boolean;
@@ -120,6 +124,9 @@ export default function MainHeader({
   user,
   activeInst,
   colaboradores = [],
+  processos = [],
+  matrixActivities = [],
+  instituicoes = [],
   onBack,
   onLogout,
   showBack = true,
@@ -291,7 +298,8 @@ export default function MainHeader({
   const currentInst = activeInstData || activeInst || getActiveInstituicao();
   const instLogo = currentInst?.logo && !currentInst.logo.includes("11zvvpOpZARM1yk_irEDpjJ-qBKlTlhad") ? currentInst.logo : null;
   const instName = currentInst?.nome || user?.instituicaoNome || "Instituição";
-  const instSigla = currentInst?.sigla || "";
+  const instAbreviatura = currentInst?.abreviatura || currentInst?.sigla || instName;
+  const instSigla = currentInst?.sigla || currentInst?.abreviatura || "";
 
   const isSuperAdmin = isSuperBossUser(user) || user?.isOwner || user?.role === "Proprietário" || user?.role === "Administrador do Sistema" || user?.role === "admin";
   const isInstAdmin = isInstitutionalAdminAccount(user);
@@ -439,47 +447,50 @@ export default function MainHeader({
         <div className="w-full flex justify-between items-center px-2 sm:px-4 md:px-6 py-1.5 md:py-2 gap-2 md:gap-4">
           {/* Left - Separação Soberana: SISTEMA (SIGEP) vs. INSTITUIÇÃO ATIVA */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* 1. Logotipo e Identidade do SISTEMA (SIGEP) */}
-            <div 
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent("open_view", { detail: { view: "dashboard" } }));
-              }}
-              title="SISTEMA SIGEP - Ir para a Visão Geral do Sistema"
-              className="flex flex-col items-center justify-center shrink-0 cursor-pointer hover:opacity-95 active:scale-95 transition-all group"
-            >
-              <div className="flex items-center justify-center bg-transparent overflow-hidden w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0 group-hover:scale-105 transition-all">
-                {effectiveSystemLogo ? (
-                  <img
-                    src={effectiveSystemLogo}
-                    alt="Logotipo do Sistema SIGEP"
-                    className="w-full h-full object-contain filter drop-shadow-sm"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <SigepLogo size="sm" className="!w-full !h-full max-w-full max-h-full" showText={false} animated={true} />
+            {/* 1. Logotipo e Identidade do SISTEMA (SIGEP) - Visível apenas para Administrador Geral ou Proprietário */}
+            {(isSuperAdmin) ? (
+              <>
+                <div 
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("open_view", { detail: { view: "dashboard" } }));
+                  }}
+                  title="SISTEMA SIGEP - Ir para a Visão Geral do Sistema"
+                  className="flex flex-col items-center justify-center shrink-0 cursor-pointer hover:opacity-95 active:scale-95 transition-all group"
+                >
+                  <div className="flex items-center justify-center bg-transparent overflow-hidden w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0 group-hover:scale-105 transition-all">
+                    {effectiveSystemLogo ? (
+                      <img
+                        src={effectiveSystemLogo}
+                        alt="Logotipo do Sistema SIGEP"
+                        className="w-full h-full object-contain filter drop-shadow-sm"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <SigepLogo size="sm" className="!w-full !h-full max-w-full max-h-full" showText={false} animated={true} />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <h2
-                className="text-[6.5px] sm:text-[7.5px] md:text-[8.5px] font-black tracking-[0.18em] text-white/90 uppercase mt-0.5 select-none whitespace-nowrap"
-                style={textShadowLight}
-              >
-                SIGEP &bull; SISTEMA
-              </h2>
-            </div>
-
-            {/* Separador Visual entre o Sistema e a Instituição */}
-            <div className="hidden sm:block h-8 sm:h-10 w-px bg-white/20 shrink-0" />
+                  <h2
+                    className="text-[6.5px] sm:text-[7.5px] md:text-[8.5px] font-black tracking-[0.18em] text-white/90 uppercase mt-0.5 select-none whitespace-nowrap"
+                    style={textShadowLight}
+                  >
+                    SIGEP &bull; SISTEMA
+                  </h2>
+                </div>
+                {/* Separador Visual entre o Sistema e a Instituição */}
+                <div className="hidden sm:block h-8 sm:h-10 w-px bg-white/20 shrink-0" />
+              </>
+            ) : null}
 
             {/* 2. Logotipo e Identidade da INSTITUIÇÃO ATIVA */}
             <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl bg-white/95 p-1 flex items-center justify-center shrink-0 border border-white/30 shadow-md">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl bg-transparent flex items-center justify-center shrink-0">
                 {instLogo ? (
                   <img
                     src={instLogo}
                     alt={`Logotipo da ${instName}`}
-                    className="w-full h-full object-contain filter drop-shadow-2xs"
+                    className="w-full h-full object-contain"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
@@ -530,14 +541,24 @@ export default function MainHeader({
                   </select>
                 ) : (
                   <h3
-                    className="text-[9px] sm:text-[11px] md:text-[12px] font-serif font-black tracking-wide text-white leading-tight truncate max-w-[110px] sm:max-w-[160px] md:max-w-[210px]"
+                    className="text-[10px] sm:text-[12px] md:text-[13px] font-serif font-black tracking-wider text-white leading-tight truncate max-w-[110px] sm:max-w-[160px] md:max-w-[210px]"
                     style={textShadowStyle}
                     title={instName}
                   >
-                    {instName}
+                    {instAbreviatura}
                   </h3>
                 )}
               </div>
+            </div>
+
+            {/* BARRA DE PESQUISA GLOBAL - INTEGRADA NO LADO ESQUERDO */}
+            <div className="hidden lg:flex ml-4 xl:ml-8 flex-1 min-w-[150px] max-w-[400px]">
+              <GlobalSearch 
+                colaboradores={colaboradores}
+                processos={processos}
+                matrixActivities={matrixActivities}
+                instituicoes={instituicoes}
+              />
             </div>
           </div>
 

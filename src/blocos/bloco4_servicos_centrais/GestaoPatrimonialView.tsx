@@ -29,6 +29,15 @@ import FormularioRequisicaoInterna from "../bloco6_documentos/FormularioRequisic
 import RegistarMateriaisBensForm from "../bloco8_gerais/RegistarMateriaisBensForm";
 const DocumentosView = lazy(() => import("../bloco6_documentos/DocumentosView"));
 const WorkflowRequisicaoView = lazy(() => import("../bloco5_sistema/WorkflowRequisicaoView"));
+const MatrixView = lazy(() => import("../bloco5_sistema/MatrixView"));
+const CalendarView = lazy(() => import("../bloco5_sistema/CalendarView"));
+const AssinaturaDigitalView = lazy(() => import("../bloco5_sistema/AssinaturaDigitalView"));
+const GestaoDocumentosView = lazy(() => import("../bloco4_servicos_centrais/GestaoDocumentosView"));
+const ReportsView = lazy(() => import("../bloco7_relatorios/ReportsView"));
+const BalancoMensalView = lazy(() => import("../bloco4_servicos_centrais/BalancoMensalView"));
+const BalancoCombustivelView = lazy(() => import("../bloco4_servicos_centrais/BalancoCombustivelView"));
+const BalancoInventarioView = lazy(() => import("../bloco4_servicos_centrais/BalancoInventarioView"));
+const BalancoAtividadesView = lazy(() => import("../bloco4_servicos_centrais/BalancoAtividadesView"));
 import FichaInventarioMovel from "../bloco6_documentos/FichaInventarioMovel";
 import { FichaInventarioImovel } from "../bloco6_documentos/FichaInventarioImovel";
 import { FichaInventarioVeiculo } from "../bloco6_documentos/FichaInventarioVeiculo";
@@ -38,16 +47,7 @@ import { FichaLocacaoImovel } from "../bloco6_documentos/FichaLocacaoImovel";
 import { FichaLocacaoMovel } from "../bloco6_documentos/FichaLocacaoMovel";
 import { FichaLocacaoEquipamento } from "../bloco6_documentos/FichaLocacaoEquipamento";
 import VisaoGeralLayout from "../bloco8_gerais/VisaoGeralLayout";
-import MatrixView from "../bloco5_sistema/MatrixView";
-import CalendarView from "../bloco5_sistema/CalendarView";
-import AssinaturaDigitalView from "../bloco5_sistema/AssinaturaDigitalView";
-import GestaoDocumentosView from "../bloco4_servicos_centrais/GestaoDocumentosView";
-import ReportsView from "../bloco7_relatorios/ReportsView";
 import { Pen, Calendar as CalendarIcon, FolderOpen } from "lucide-react";
-import BalancoMensalView from "../bloco4_servicos_centrais/BalancoMensalView";
-import BalancoCombustivelView from "../bloco4_servicos_centrais/BalancoCombustivelView";
-import BalancoInventarioView from "../bloco4_servicos_centrais/BalancoInventarioView";
-import BalancoAtividadesView from "../bloco4_servicos_centrais/BalancoAtividadesView";
 import { isSuperBossUser, isPatrimonioBossOrAdmin } from "../../lib/auth";
 
 export default function GestaoPatrimonialView({

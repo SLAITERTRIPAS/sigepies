@@ -19,15 +19,17 @@ export default function UGEAPlanView({
   // Filter activities based on the requested plan type AND user permissions
   const authorizedActivities = getAuthorizedActivities(activities, user);
   const planActivities = authorizedActivities.filter((a) => {
-    if (type === "Aquisicão") return a.necessitaAquisicao === "Sim";
+    if (type === "Aquisicão" || type === "Aquisição") return a.necessitaAquisicao === "Sim";
     if (type === "Contratação") return a.necessitaContratacao === "Sim";
     return false;
   });
 
-  const totalOrcamento = planActivities.reduce(
-    (acc, a) => acc + (a.total || a.valor || 0),
-    0,
-  );
+  const totalOrcamento = planActivities.reduce((acc, a) => {
+    if (Array.isArray(a.rubricas) && a.rubricas.length > 0) {
+      return acc + a.rubricas.reduce((rAcc, r) => rAcc + Number(r.valorTotal || r.total || 0), 0);
+    }
+    return acc + Number(a.total || a.valor || a.valorTotal || 0);
+  }, 0);
 
   return (
     <div className="h-full w-full bg-gray-50 flex flex-col p-6 font-sans">

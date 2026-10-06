@@ -41,24 +41,27 @@ import {
   X,
   Sliders,
 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import SectorMenuConfigModal from "../../components/SectorMenuConfigModal";
 
 import BoardOverview from "../bloco2_orgaos_gestao/BoardOverview";
-import CalendarView from "../bloco5_sistema/CalendarView";
-import AssignActivityView from "../bloco5_sistema/AssignActivityView";
-import MatrixView from "../bloco5_sistema/MatrixView";
+const CalendarView = lazy(() => import("../bloco5_sistema/CalendarView"));
+const AssignActivityView = lazy(() => import("../bloco5_sistema/AssignActivityView"));
+const MatrixView = lazy(() => import("../bloco5_sistema/MatrixView"));
 import { MatrixActivity } from "../../types";
-import MyMatrixView from "../bloco5_sistema/MyMatrixView";
-import ReportsView from "../bloco7_relatorios/ReportsView";
-import ActivityForm from "../bloco5_sistema/ActivityForm";
-import IndividualPlanForm from "../bloco8_gerais/IndividualPlanForm";
-import GestaoDocumentosView from "../bloco4_servicos_centrais/GestaoDocumentosView";
-import GestaoExpedienteHistoricoView from "../bloco4_servicos_centrais/GestaoExpedienteHistoricoView";
-import EstatisticaView from "../bloco7_relatorios/EstatisticaView";
-import DocumentosView from "../bloco6_documentos/DocumentosView";
-import LibraryManagementView from "../bloco3_unidades_organicas/LibraryManagementView";
-import GestaoPessoalView from "../bloco4_servicos_centrais/GestaoPessoalView";
-import GestaoSocialView from "../bloco4_servicos_centrais/GestaoSocialView";
+const MyMatrixView = lazy(() => import("../bloco5_sistema/MyMatrixView"));
+const ReportsView = lazy(() => import("../bloco7_relatorios/ReportsView"));
+const ActivityForm = lazy(() => import("../bloco5_sistema/ActivityForm"));
+const IndividualPlanForm = lazy(() => import("../bloco8_gerais/IndividualPlanForm"));
+const GestaoDocumentosView = lazy(() => import("../bloco4_servicos_centrais/GestaoDocumentosView"));
+const GestaoExpedienteHistoricoView = lazy(() => import("../bloco4_servicos_centrais/GestaoExpedienteHistoricoView"));
+const EstatisticaView = lazy(() => import("../bloco7_relatorios/EstatisticaView"));
+const DocumentosView = lazy(() => import("../bloco6_documentos/DocumentosView"));
+const LibraryManagementView = lazy(() => import("../bloco3_unidades_organicas/LibraryManagementView"));
+const GestaoPessoalView = lazy(() => import("../bloco4_servicos_centrais/GestaoPessoalView"));
+const GestaoSocialView = lazy(() => import("../bloco4_servicos_centrais/GestaoSocialView"));
+import InstitutionalCharts from "../../components/InstitutionalCharts";
 import {
   Event,
   Expediente,
@@ -67,18 +70,19 @@ import {
   Nota,
   FinancialData,
   Supplier,
+  ServiceRequest,
 } from "../../types";
-import RecursosFinanceirosForm from "../bloco8_gerais/RecursosFinanceirosForm";
-import DRADashboard from "../bloco4_servicos_centrais/DRADashboard";
+const RecursosFinanceirosForm = lazy(() => import("../bloco8_gerais/RecursosFinanceirosForm"));
+const DRADashboard = lazy(() => import("../bloco4_servicos_centrais/DRADashboard"));
 import CentralOverview from "./CentralOverview";
-import GestaoFormacaoView from "../bloco4_servicos_centrais/GestaoFormacaoView";
-import ArchiveView from "../bloco5_sistema/ArchiveView";
-import GestaoAcademicaView from "../bloco3_unidades_organicas/GestaoAcademicaView";
-import GestaoAcademicaMainView from "../bloco3_unidades_organicas/GestaoAcademicaMainView";
-import HorarioView from "../bloco3_unidades_organicas/HorarioView";
-import ExamesView from "../bloco3_unidades_organicas/ExamesView";
-import GraduadosView from "../bloco3_unidades_organicas/GraduadosView";
-import DisciplinasEspacosFisicosView from "../bloco3_unidades_organicas/DisciplinasEspacosFisicosView";
+const GestaoFormacaoView = lazy(() => import("../bloco4_servicos_centrais/GestaoFormacaoView"));
+const ArchiveView = lazy(() => import("../bloco5_sistema/ArchiveView"));
+const GestaoAcademicaView = lazy(() => import("../bloco3_unidades_organicas/GestaoAcademicaView"));
+const GestaoAcademicaMainView = lazy(() => import("../bloco3_unidades_organicas/GestaoAcademicaMainView"));
+const HorarioView = lazy(() => import("../bloco3_unidades_organicas/HorarioView"));
+const ExamesView = lazy(() => import("../bloco3_unidades_organicas/ExamesView"));
+const GraduadosView = lazy(() => import("../bloco3_unidades_organicas/GraduadosView"));
+const DisciplinasEspacosFisicosView = lazy(() => import("../bloco3_unidades_organicas/DisciplinasEspacosFisicosView"));
 import {
   getRoles,
   isSuperBossUser,
@@ -90,19 +94,19 @@ import {
 } from "../../lib/auth";
 import DepartmentSectorAllocationModal from "../../components/DepartmentSectorAllocationModal";
 import { confirmWorkspaceExit } from "../../lib/utils";
-import UGEA_PlanView from "../bloco4_servicos_centrais/UGEA_PlanView";
-import UGEA_SupplierManagementView from "../bloco4_servicos_centrais/UGEA_SupplierManagementView";
-import UGEA_SupplierRegistrationForm from "../bloco4_servicos_centrais/UGEA_SupplierRegistrationForm";
-import GestaoProdutosPrecosView from "../bloco9_produtos_precos/GestaoProdutosPrecosView";
-import AssinaturaDigitalView from "../bloco5_sistema/AssinaturaDigitalView";
-import CaixaMensagensView from "../bloco5_sistema/CaixaMensagensView";
-import BalancoMensalView from "../bloco4_servicos_centrais/BalancoMensalView";
-import BalancoCombustivelView from "../bloco4_servicos_centrais/BalancoCombustivelView";
-import BalancoInventarioView from "../bloco4_servicos_centrais/BalancoInventarioView";
-import BalancoAtividadesView from "../bloco4_servicos_centrais/BalancoAtividadesView";
-import GestaoTransporteView from "../bloco4_servicos_centrais/GestaoTransporteView";
-import PlanoWorkflowView from "../bloco5_sistema/PlanoWorkflowView";
-import AcaoOrcamentalView from "../../components/AcaoOrcamentalView";
+const UGEA_PlanView = lazy(() => import("../bloco4_servicos_centrais/UGEA_PlanView"));
+const UGEA_SupplierManagementView = lazy(() => import("../bloco4_servicos_centrais/UGEA_SupplierManagementView"));
+const UGEA_SupplierRegistrationForm = lazy(() => import("../bloco4_servicos_centrais/UGEA_SupplierRegistrationForm"));
+const GestaoProdutosPrecosView = lazy(() => import("../bloco9_produtos_precos/GestaoProdutosPrecosView"));
+const AssinaturaDigitalView = lazy(() => import("../bloco5_sistema/AssinaturaDigitalView"));
+const CaixaMensagensView = lazy(() => import("../bloco5_sistema/CaixaMensagensView"));
+const BalancoMensalView = lazy(() => import("../bloco4_servicos_centrais/BalancoMensalView"));
+const BalancoCombustivelView = lazy(() => import("../bloco4_servicos_centrais/BalancoCombustivelView"));
+const BalancoInventarioView = lazy(() => import("../bloco4_servicos_centrais/BalancoInventarioView"));
+const BalancoAtividadesView = lazy(() => import("../bloco4_servicos_centrais/BalancoAtividadesView"));
+const GestaoTransporteView = lazy(() => import("../bloco4_servicos_centrais/GestaoTransporteView"));
+const PlanoWorkflowView = lazy(() => import("../bloco5_sistema/PlanoWorkflowView"));
+const AcaoOrcamentalView = lazy(() => import("../../components/AcaoOrcamentalView"));
 import { firestoreService } from "../../lib/firestoreService";
 import MainHeader from "../bloco1_apresentacao/MainHeader";
 import VisaoGeralCards from "../../components/VisaoGeralCards";
@@ -151,6 +155,7 @@ export default function DirectorDashboard({
   suppliers = [],
   colaboradores = [],
   processos = [],
+  serviceRequests = [],
   user = null,
   onPathChange = () => {},
   setDashboardTitle = () => {},
@@ -186,6 +191,7 @@ export default function DirectorDashboard({
   suppliers?: Supplier[];
   colaboradores?: any[];
   processos?: any[];
+  serviceRequests?: ServiceRequest[];
   user?: any;
   onPathChange?: (path: string[]) => void;
   setDashboardTitle: (title: string) => void;
@@ -345,6 +351,109 @@ export default function DirectorDashboard({
   const [balancoType, setBalancoType] = useState<string | null>(null);
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [movements, setMovements] = useState<any[]>([]);
+  const [estudantesDb, setEstudantesDb] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsubEst = firestoreService.efetivo_escolar.subscribe((data: any[]) => {
+      setEstudantesDb(data || []);
+    });
+    return () => {
+      if (unsubEst) unsubEst();
+    };
+  }, []);
+
+  const colabNivelAcademico = useMemo(() => {
+    const map: Record<string, number> = {};
+    (colaboradores || []).forEach(c => {
+      const niv = c.nivelAcademico || c.grauAcademico || "Não Especificado";
+      map[niv] = (map[niv] || 0) + 1;
+    });
+    return Object.entries(map).map(([nivel, total]) => ({ nivel, total })).sort((a, b) => b.total - a.total);
+  }, [colaboradores]);
+
+  const colabAreaFormacao = useMemo(() => {
+    const map: Record<string, number> = {};
+    (colaboradores || []).forEach(c => {
+      const area = c.areaFormacao || c.area || c.departamento || "Geral";
+      map[area] = (map[area] || 0) + 1;
+    });
+    return Object.entries(map).map(([area, total]) => ({ area, total })).sort((a, b) => b.total - a.total);
+  }, [colaboradores]);
+
+  const colabChefia = useMemo(() => {
+    let comChefia = 0;
+    let semChefia = 0;
+    const cargosMap: Record<string, number> = {};
+    (colaboradores || []).forEach(c => {
+      const cargo = c.cargoChefia || c.cargo || c.funcao || "";
+      const isChefe = /diretor|chefe|coordenador|reitor|decano|chefe de departamento|chefe de repartição/i.test(cargo);
+      if (isChefe) {
+        comChefia++;
+        cargosMap[cargo] = (cargosMap[cargo] || 0) + 1;
+      } else {
+        semChefia++;
+      }
+    });
+    return { comChefia, semChefia, cargosMap };
+  }, [colaboradores]);
+
+  const discenteCurso = useMemo(() => {
+    const map: Record<string, number> = {};
+    (estudantesDb || []).forEach(e => {
+      const curso = e.curso || e.cursoNome || e.departamento || "Geral";
+      map[curso] = (map[curso] || 0) + 1;
+    });
+    return Object.entries(map).map(([curso, total]) => ({ curso, total })).sort((a, b) => b.total - a.total);
+  }, [estudantesDb]);
+
+  const discenteNaturalidade = useMemo(() => {
+    const map: Record<string, number> = {};
+    (estudantesDb || []).forEach(e => {
+      const nat = e.naturalidade || e.provincia || e.origem || "Não Especificada";
+      map[nat] = (map[nat] || 0) + 1;
+    });
+    return Object.entries(map).map(([naturalidade, total]) => ({ naturalidade, total })).sort((a, b) => b.total - a.total);
+  }, [estudantesDb]);
+
+  const discenteNivel = useMemo(() => {
+    const map: Record<string, number> = {};
+    (estudantesDb || []).forEach(e => {
+      const niv = e.nivel || e.ano || e.anoAcademico || "1º Ano";
+      map[niv] = (map[niv] || 0) + 1;
+    });
+    return Object.entries(map).map(([nivel, total]) => ({ nivel, total })).sort((a, b) => b.total - a.total);
+  }, [estudantesDb]);
+
+  const planoAtividadesStats = useMemo(() => {
+    const allActs = [...(matrixActivities || []), ...(activities || [])];
+    let executadas = 0;
+    let porExecutar = 0;
+    let orcamentoExecutadas = 0;
+    let orcamentoPorExecutar = 0;
+    let orcamentoTotal = 0;
+
+    allActs.forEach(a => {
+      const st = (a.status || "").toLowerCase();
+      const val = Number(a.orcamento || a.budget || a.valor || a.custo || 0);
+      orcamentoTotal += val;
+      if (st.includes("conclu") || st.includes("executad")) {
+        executadas++;
+        orcamentoExecutadas += val;
+      } else {
+        porExecutar++;
+        orcamentoPorExecutar += val;
+      }
+    });
+
+    return {
+      total: allActs.length,
+      executadas,
+      porExecutar,
+      orcamentoTotal,
+      orcamentoExecutadas,
+      orcamentoPorExecutar,
+    };
+  }, [matrixActivities, activities]);
 
   const navigateTo = (newItem: string, resetSelectedPlan = true) => {
     setViewHistory((prev) => [
@@ -938,6 +1047,62 @@ export default function DirectorDashboard({
       status: "shared",
     },
   ]);
+
+  const handleGeneratePDFReport = () => {
+    const doc = new jsPDF();
+    const now = new Date();
+    const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    const currentMonth = monthNames[now.getMonth()];
+    const currentYear = now.getFullYear();
+
+    // Filtro para o mês corrente
+    const monthlyActivities = matrixActivities.filter(act => {
+      if (!act.createdAt) return false;
+      const actDate = new Date(act.createdAt);
+      return actDate.getMonth() === now.getMonth() && actDate.getFullYear() === now.getFullYear();
+    });
+
+    const pending = monthlyActivities.filter(a => (a.status as string) === "Pendente" || !a.status || (a.status as string) === "Em Curso" || a.status === "draft" || a.status === "submitted");
+    const completed = monthlyActivities.filter(a => (a.status as string) === "Concluído" || (a.status as string) === "Validado" || a.status === "executada" || a.status === "pronta");
+
+    doc.setFontSize(18);
+    doc.setTextColor(18, 28, 96);
+    doc.text(`Relatório Mensal de Atividades - ${currentMonth} ${currentYear}`, 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Instituição: ${user?.instituicaoNome || 'SIGEP'}`, 14, 28);
+    doc.text(`Data de Emissão: ${now.toLocaleString()}`, 14, 34);
+
+    // Resumo
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text("Resumo de Atividades:", 14, 45);
+    doc.setFontSize(10);
+    doc.text(`- Total no Mês: ${monthlyActivities.length}`, 14, 52);
+    doc.text(`- Concluídas: ${completed.length}`, 14, 58);
+    doc.text(`- Pendentes/Em Curso: ${pending.length}`, 14, 64);
+
+    // Tabela de Atividades
+    const tableData = monthlyActivities.map(act => [
+      act.title || "Sem Título",
+      act.sector || "N/A",
+      act.status || "Pendente",
+      act.createdAt ? new Date(act.createdAt).toLocaleDateString() : "N/A"
+    ]);
+
+    autoTable(doc, {
+      startY: 75,
+      head: [["Título da Atividade", "Setor", "Estado", "Data Criação"]],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [18, 28, 96], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 8 },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
+    });
+
+    doc.save(`Relatorio_Atividades_${currentMonth}_${currentYear}.pdf`);
+  };
 
   const renderContent = () => {
     if (activeItem === "Gestão de Produtos e Preços") {
@@ -1547,7 +1712,169 @@ export default function DirectorDashboard({
 
     if (activeItem === "Visão Geral") {
       return (
-        <VisaoGeralCards onNavigate={navigateTo} user={user} title={title} />
+        <div className="flex flex-col gap-8 w-full">
+          <VisaoGeralCards onNavigate={navigateTo} user={user} title={title} />
+          
+          {/* Seção Resumo Diretor Geral (Colaboradores, Corpo Discente, Plano de Atividades) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
+            {/* 1. Resumo dos Colaboradores */}
+            <div className="bg-white border-2 border-slate-900 rounded-3xl p-6 shadow-[6px_6px_0px_0px_#0f172a] space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="p-2 bg-blue-100 text-blue-900 rounded-xl">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-sm tracking-tight">Resumo dos Colaboradores</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">Total: {colaboradores.length} colaboradores</p>
+                </div>
+              </div>
+              
+              <div className="space-y-3 text-xs">
+                <div>
+                  <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] block mb-1">Por Nível Académico:</span>
+                  <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                    {colabNivelAcademico.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg font-bold">
+                        <span className="text-slate-700 truncate">{item.nivel}</span>
+                        <span className="bg-blue-100 text-blue-900 px-2 py-0.5 rounded-full text-[10px]">{item.total}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] block mb-1">Por Área de Formação:</span>
+                  <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                    {colabAreaFormacao.slice(0, 5).map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg font-bold">
+                        <span className="text-slate-700 truncate">{item.area}</span>
+                        <span className="bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-full text-[10px]">{item.total}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex justify-between items-center font-black">
+                  <span className="text-slate-600 text-[11px]">Com Cargos de Chefia:</span>
+                  <span className="text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl">{colabChefia.comChefia} chefias</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Corpo Discente */}
+            <div className="bg-white border-2 border-slate-900 rounded-3xl p-6 shadow-[6px_6px_0px_0px_#1e3a8a] space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="p-2 bg-indigo-100 text-indigo-900 rounded-xl">
+                  <GraduationCap size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-sm tracking-tight">Corpo Discente</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">Total: {estudantesDb.length} estudantes</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] block mb-1">Por Curso:</span>
+                  <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                    {discenteCurso.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg font-bold">
+                        <span className="text-slate-700 truncate">{item.curso}</span>
+                        <span className="bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-full text-[10px]">{item.total}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] block mb-1">Por Naturalidade (Origem):</span>
+                  <div className="max-h-24 overflow-y-auto space-y-1 pr-1">
+                    {discenteNaturalidade.slice(0, 4).map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg font-bold">
+                        <span className="text-slate-700 truncate">{item.naturalidade}</span>
+                        <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full text-[10px]">{item.total}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] block mb-1">Por Nível / Ano:</span>
+                  <div className="flex gap-2 flex-wrap">
+                    {discenteNivel.map((item, idx) => (
+                      <span key={idx} className="bg-blue-50 text-blue-900 border border-blue-200 px-2.5 py-1 rounded-xl font-black text-[10px]">
+                        {item.nivel}: {item.total}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Plano de Atividade */}
+            <div className="bg-white border-2 border-slate-900 rounded-3xl p-6 shadow-[6px_6px_0px_0px_#f59e0b] space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="p-2 bg-amber-100 text-amber-900 rounded-xl">
+                  <Calendar size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-sm tracking-tight">Plano de Atividades</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">Total: {planoAtividadesStats.total} atividades</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl">
+                    <span className="block text-[9px] font-black text-emerald-600 uppercase tracking-wider">Já Executadas</span>
+                    <span className="text-xl font-black text-emerald-900">{planoAtividadesStats.executadas}</span>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl">
+                    <span className="block text-[9px] font-black text-amber-600 uppercase tracking-wider">Por Executar</span>
+                    <span className="text-xl font-black text-amber-900">{planoAtividadesStats.porExecutar}</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl space-y-2">
+                  <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Análise por Orçamento</span>
+                  <div className="flex justify-between font-bold text-slate-800">
+                    <span>Orçamento Total:</span>
+                    <span>{planoAtividadesStats.orcamentoTotal.toLocaleString("pt-MZ", { style: "currency", currency: "MZN" })}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-emerald-700 text-[11px]">
+                    <span>Executado:</span>
+                    <span>{planoAtividadesStats.orcamentoExecutadas.toLocaleString("pt-MZ", { style: "currency", currency: "MZN" })}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-amber-700 text-[11px]">
+                    <span>Por Executar:</span>
+                    <span>{planoAtividadesStats.orcamentoPorExecutar.toLocaleString("pt-MZ", { style: "currency", currency: "MZN" })}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <BarChart2 className="text-blue-900" size={18} />
+                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Análise Estatística em Tempo Real</h2>
+              </div>
+              <button
+                onClick={handleGeneratePDFReport}
+                className="flex items-center gap-2 bg-blue-900 text-white px-5 py-2.5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-blue-800 transition-all shadow-[4px_4px_0px_0px_#1e3a8a] active:translate-x-1 active:translate-y-1 active:shadow-none shrink-0"
+              >
+                <FileText size={16} />
+                Gerar Relatório PDF Mensal
+              </button>
+            </div>
+            <InstitutionalCharts 
+              processos={processos} 
+              colaboradores={colaboradores} 
+              serviceRequests={serviceRequests} 
+            />
+          </div>
+        </div>
       );
     }
 
@@ -1989,7 +2316,9 @@ export default function DirectorDashboard({
         )}
 
         <div className="flex-1 min-h-0 w-full flex flex-col">
-          {renderContent()}
+          <Suspense fallback={<div className="flex items-center justify-center p-8 text-slate-500 font-medium">A carregar módulo...</div>}>
+            {renderContent()}
+          </Suspense>
         </div>
       </div>
     </div>

@@ -12,12 +12,18 @@ import {
   ShieldAlert,
   ArrowLeft,
   Database,
+  Bell,
+  AlertTriangle,
+  Calendar,
+  Clock,
+  FileText,
 } from "lucide-react";
+import SigepLogo from "./components/SigepLogo";
+import FirebaseStatusIndicator from "./components/FirebaseStatusIndicator";
 import MainHeader from "./blocos/bloco1_apresentacao/MainHeader";
 import { AlertModal } from "./components/ui/AlertModal";
 import BackupRestoreModal from "./components/modals/BackupRestoreModal";
-import { QuantumCopilotModal } from "./components/quantum/QuantumCopilotModal";
-import { QuantumFloatingOrb } from "./components/quantum/QuantumFloatingOrb";
+import FooterInfoModal from "./components/modals/FooterInfoModal";
 import { ViewRenderer } from "./components/ViewRenderer";
 import { EFETIVO_GERAL_DATA } from "./constants/colaboradoresList";
 import { runAutomaticBackupIfNeeded, autoRestoreOnStartup } from "./lib/backupService";
@@ -42,6 +48,7 @@ import {
   isTechnicianUser,
 } from "./lib/auth";
 import { ProcessingCircle } from "./components/ui/ProcessingCircle";
+import { MENU_NAVIGATION_MAP } from "./lib/menuNavigationConfig";
 import {
   firestoreService,
   wipeDatabaseExceptExclusions,
@@ -75,6 +82,7 @@ import { auth, db } from "./lib/firebase";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { getSetoresByDepartamento } from "./constants/formOptions";
+import DiagnosticPanel from "./components/DiagnosticPanel";
 export { ErrorBoundary };
 
 interface NavigationSnapshot {
@@ -89,23 +97,127 @@ interface NavigationSnapshot {
 }
 
 export default function App() {
+  // 1. Estados de Base (Dados)
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    try {
+      const storedUserStr =
+        localStorage.getItem("sigep_logged_in_user") ||
+        localStorage.getItem("sigep_user");
+      if (storedUserStr && storedUserStr !== "undefined") {
+        const parsed = JSON.parse(storedUserStr);
+        if (parsed && (parsed.email || parsed.nuit || parsed.id || parsed.name)) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return null;
+  });
+
   const [historyStack, setHistoryStack] = useState<NavigationSnapshot[]>([]);
+
+  const [rawColaboradores, setRawColaboradores] = useState<any[]>([]);
+  const [rawChefiaColaboradores, setRawChefiaColaboradores] = useState<any[]>([]);
+  const [processos, setProcessos] = useState<any[]>([]);
+  const [instituicoes, setInstituicoes] = useState<any[]>([]);
+  const [alocacoes, setAlocacoes] = useState<any[]>([]);
+  
+  const colaboradores = React.useMemo(() => {
+    return mergeColaboradores([...rawChefiaColaboradores, ...rawColaboradores]);
+  }, [rawColaboradores, rawChefiaColaboradores]);
+
+  const extendedUser = React.useMemo(() => {
+    if (!currentUser) return null;
+
+    // Quick lookups using find() - still O(N) but memoized so it only runs when data changes
+    // Only search in colaboradores if currentUser is NOT found in processos to save cycles
+    const userProcess = (processos || []).find(
+      (p) =>
+        (p.email &&
+          currentUser.email &&
+          p.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+        (p.nuit && currentUser.nuit && p.nuit === currentUser.nuit),
+    );
+
+    let colab = null;
+    if (!userProcess && colaboradores && colaboradores.length > 0) {
+      colab = colaboradores.find(
+        (c) =>
+          (c.email &&
+            currentUser.email &&
+            c.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+          (c.nuit && currentUser.nuit && c.nuit === currentUser.nuit),
+      );
+    }
+
+    const role =
+      userProcess?.cargoChefia &&
+      userProcess.cargoChefia !== "Nenhum" &&
+      userProcess.cargoChefia !== "-"
+        ? userProcess.cargoChefia
+        : colab?.cargoChefia &&
+            colab.cargoChefia !== "Nenhum" &&
+            colab.cargoChefia !== "-"
+          ? colab.cargoChefia
+          : currentUser.role;
+
+    const photoURL =
+      userProcess?.fotoUrl || userProcess?.foto || currentUser.photoURL || currentUser.photo;
+
+    const isOwner = isSuperBossUser(currentUser) || currentUser.isOwner;
+    const systemOwnerName = isOwner ? (localStorage.getItem("proprietarioName") || currentUser.name) : currentUser.name;
+    const systemOwnerPhoto = isOwner ? (localStorage.getItem("proprietarioPhoto") || photoURL) : photoURL;
+
+    const targetSource = userProcess || colab;
+    return {
+      ...currentUser,
+      name: systemOwnerName,
+      nome: systemOwnerName,
+      role,
+      photoURL: systemOwnerPhoto,
+      title:
+        targetSource?.title ||
+        targetSource?.cargoChefia ||
+        targetSource?.cargo ||
+        currentUser.title,
+      cargo: targetSource?.cargo || currentUser.cargo,
+      cargoChefia: targetSource?.cargoChefia || currentUser.cargoChefia,
+      isChefia:
+        targetSource?.isChefia ||
+        currentUser.isChefia ||
+        !!(
+          targetSource?.cargoChefia &&
+          targetSource?.cargoChefia !== "Nenhum" &&
+          targetSource?.cargoChefia !== "-"
+        ),
+      estadoMandato: targetSource?.estadoMandato || currentUser.estadoMandato,
+      status: targetSource?.status || currentUser.status,
+      direcao: targetSource?.direcao || currentUser.direcao,
+      departamento: targetSource?.departamento || currentUser.departamento,
+      reparticao: targetSource?.reparticao || currentUser.reparticao,
+      setor: targetSource?.setor || currentUser.setor,
+      areaDeAfetacao: targetSource?.areaDeAfetacao || currentUser.areaDeAfetacao,
+      setoresAtribuidos: targetSource?.setoresAtribuidos || currentUser.setoresAtribuidos || [],
+    };
+  }, [currentUser?.email, currentUser?.nuit, processos?.length, colaboradores?.length]);
+
+  // 2. Estados de Navegação e Interface
   const [view, setView] = useState<any>(() => {
     try {
       const storedUserStr =
         localStorage.getItem("sigep_logged_in_user") ||
         localStorage.getItem("sigep_user");
-      if (storedUserStr) {
+      if (storedUserStr && storedUserStr !== "undefined") {
         const parsed = JSON.parse(storedUserStr);
         if (parsed && isSuperBossUser(parsed)) {
-          // Só vai para a seleção de papéis se tiver mais que uma opção (se for chefe também)
           if (isChefeUser(parsed)) {
             return "admin_role_selection";
           }
           return "dashboard";
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Erro ao inicializar view:", e);
+    }
     return "presentation";
   });
   const [statsActiveItem, setStatsActiveItem] = useState<string | null>(null);
@@ -156,40 +268,30 @@ export default function App() {
   const [financialData, setFinancialData] = useState<FinancialData[]>([]);
   const [efetivoEscolar, setEfetivoEscolar] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
-  const [rawColaboradores, setRawColaboradores] = useState<any[]>([]);
-  const [rawChefiaColaboradores, setRawChefiaColaboradores] = useState<any[]>(
-    [],
-  );
-  const colaboradores = React.useMemo(() => {
-    return mergeColaboradores([...rawChefiaColaboradores, ...rawColaboradores]);
-  }, [rawColaboradores, rawChefiaColaboradores]);
-  const [processos, setProcessos] = useState<any[]>([]);
-  const [alocacoes, setAlocacoes] = useState<any[]>([]);
   const [accessAlerts, setAccessAlerts] = useState<any[]>([]);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [activeInst, setActiveInst] = useState<any>(null); // Adicionado
 
-  const [user, setUser] = useState<any>(() => {
-    try {
-      const storedUserStr =
-        localStorage.getItem("sigep_logged_in_user") ||
-        localStorage.getItem("sigep_user");
-      if (storedUserStr) {
-        const parsed = JSON.parse(storedUserStr);
-        if (parsed && (parsed.email || parsed.nuit || parsed.id || parsed.name)) {
-          return parsed;
-        }
-      }
-    } catch (e) {}
-    return null;
-  });
+  // Validação de segurança para evitar tela branca por estados inconsistentes
+  useEffect(() => {
+    if (!view) {
+      console.warn("Estado 'view' estava vazio, restaurando para 'presentation'.");
+      setView("presentation");
+    }
+    // Se estiver numa vista protegida mas não houver utilizador, forçar login
+    const protectedViews = ["dashboard", "menu", "submenu", "admin_role_selection", "sector_selection"];
+    if (protectedViews.includes(view) && !currentUser) {
+      console.warn(`Tentativa de aceder à vista protegida '${view}' sem utilizador. Redirecionando para login.`);
+      setView("login");
+    }
+  }, [view, currentUser]);
 
   useEffect(() => {
-    if (user && isSuperBossUser(user)) {
+    if (currentUser && isSuperBossUser(currentUser)) {
       if (view === "presentation" || view === "login") {
-        if (isChefeUser(user)) {
+        if (isChefeUser(currentUser)) {
           setDashboardTitle("");
           setView("admin_role_selection");
         } else {
@@ -199,17 +301,18 @@ export default function App() {
         }
       }
     }
-  }, [user]);
+  }, [currentUser]);
 
   // Instituição Dinâmica (Movido de MainHeader para App)
   useEffect(() => {
-    const instId = user?.instituicaoId || "isps";
+    const instId = currentUser?.instituicaoId || "isps";
     let unsub = () => {};
     
     try {
-      unsub = firestoreService.instituicoes.subscribe((instituicoes: any[]) => {
-        if (instituicoes && instituicoes.length > 0) {
-          const found = instituicoes.find((i) => i.id === instId) || instituicoes[0];
+      unsub = firestoreService.instituicoes.subscribe((insts: any[]) => {
+        setInstituicoes(insts);
+        if (insts && insts.length > 0) {
+          const found = insts.find((i) => i.id === instId) || insts[0];
           if (found) {
             setActiveInst(found);
           }
@@ -230,7 +333,7 @@ export default function App() {
       unsub();
       window.removeEventListener("instituicao_updated", handleInstUpdated);
     };
-  }, [user?.instituicaoId]);
+  }, [currentUser?.instituicaoId]);
 
   // Aplicar cores como variáveis CSS (adicionar este efeito)
   useEffect(() => {
@@ -252,9 +355,21 @@ export default function App() {
     shared_by?: string;
   }>({});
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [showFooterInfoModal, setShowFooterInfoModal] = useState(false);
   const [showQuantumModal, setShowQuantumModal] = useState(false);
+  const [showDiagnosticPanel, setShowDiagnosticPanel] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [backupAlert, setBackupAlert] = useState<{ message: string; type: string } | null>(null);
+  const [systemAlerts, setSystemAlerts] = useState<any[]>([]);
+  const [userNotifications, setUserNotifications] = useState<any[]>([]);
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("sigep_dismissed_alerts");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [showSectorSelector, setShowSectorSelector] = useState(false);
   const [assignedSectorsForLogin, setAssignedSectorsForLogin] = useState<string[]>([]);
   const [selectedSectorForLogin, setSelectedSectorForLogin] = useState<string>("");
@@ -262,8 +377,8 @@ export default function App() {
 
   const handleSelectSector = (sector: string) => {
     if (!sector) return;
-    const updatedUser = { ...user, setor: sector };
-    setUser(updatedUser);
+    const updatedUser = { ...currentUser, setor: sector };
+    setCurrentUser(updatedUser);
     localStorage.setItem("sigep_user", safeJSONStringify(updatedUser));
     localStorage.setItem("sigep_logged_in_user", safeJSONStringify(updatedUser));
     setDashboardTitle(sector);
@@ -310,11 +425,50 @@ export default function App() {
     };
 
     window.addEventListener("sigep_backup_alert", handleBackupAlert);
+
+    // Subscrição de Alertas do Sistema
+    const unsubAlerts = firestoreService.systemAlerts.subscribe((alerts: any[]) => {
+      // Filtrar apenas alertas ativos e dentro do período de validade
+      const now = new Date();
+      const active = alerts.filter(a => {
+        if (!a.active) return false;
+        // Se já foi dispensado nesta sessão/dispositivo, não mostra
+        if (dismissedAlerts.includes(a.id)) return false;
+        if (a.startDate && new Date(a.startDate) > now) return false;
+        if (a.endDate && new Date(a.endDate) < now) return false;
+        return true;
+      });
+      setSystemAlerts(active);
+    });
+
+    // Subscrição de Notificações Internas (Institucionais)
+    let unsubNotifications: (() => void) | null = null;
+    if (currentUser) {
+      const userInstId = currentUser.instituicaoId || activeInst?.id;
+      if (userInstId) {
+        unsubNotifications = firestoreService.notifications.subscribe((notifs: any[]) => {
+          // Filtrar por instituição e/ou usuário específico
+          // E apenas não lidas
+          const activeNotifs = notifs.filter(n => 
+            n.instituicaoId === userInstId && 
+            (!n.userId || n.userId === currentUser.id) &&
+            !n.read
+          );
+          
+          // Mostrar apenas as mais recentes como toasts se necessário, 
+          // ou manter no estado para o overlay
+          setUserNotifications(activeNotifs);
+        });
+      }
+    }
+
     return () => {
       window.removeEventListener("sigep_backup_alert", handleBackupAlert);
       clearInterval(backupInterval);
+      unsubAlerts();
+      if (unsubNotifications) unsubNotifications();
     };
-  }, []);
+  }, [dismissedAlerts, currentUser, activeInst?.id]);
 
   const handleSyncData = async () => {
     setModalMessage("Sincronizando todos os dados com o servidor remoto (Firestore)...");
@@ -374,6 +528,17 @@ export default function App() {
     setInnerPath([]);
   }, [view, subMenuStack]);
 
+  // Atalho de teclado para Diagnóstico (Shift + D)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.shiftKey && e.key.toUpperCase() === "D") {
+        setShowDiagnosticPanel(prev => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   useEffect(() => {
     // InitialAuthStateCheck de alta velocidade para arranque instantâneo
     const authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -420,7 +585,7 @@ export default function App() {
         }
 
         if (initialUser) {
-          setUser(initialUser);
+          setCurrentUser(initialUser);
           setView((currentView: any) => {
             if (currentView === "presentation") {
               return "presentation";
@@ -428,7 +593,7 @@ export default function App() {
             return currentView;
           });
         } else {
-          setUser(null);
+          setCurrentUser(null);
           setView((currentView: any) => {
             if (currentView === "presentation") {
               return "presentation";
@@ -467,7 +632,7 @@ export default function App() {
                   localStorage.removeItem("sigep_current_view");
                   localStorage.removeItem("sigep_session_token");
                   sessionStorage.removeItem("session_start");
-                  setUser(null);
+                  setCurrentUser(null);
                   setView("login");
                   setSessionTerminatedNotice(
                     "A sua conta foi acedida através de outro dispositivo ou navegador. A sessão neste dispositivo foi encerrada automaticamente por segurança."
@@ -483,7 +648,7 @@ export default function App() {
                   updateDoc(doc(db, "users", latestData.id), { currentSessionToken: freshToken }).catch(() => {});
                 }
                 
-                setUser((prev: any) => {
+                setCurrentUser((prev: any) => {
                   const updated = { ...prev, ...latestData, role: refinedRole, mustChangePassword: false };
                   localStorage.setItem("sigep_logged_in_user", safeJSONStringify(updated));
                   localStorage.setItem("sigep_user", safeJSONStringify(updated));
@@ -506,9 +671,9 @@ export default function App() {
   // Controlo de Sessão Única em Tempo Real:
   // Se o mesmo utilizador iniciar sessão num segundo dispositivo, o primeiro dispositivo fecha a sessão automaticamente
   useEffect(() => {
-    if (!user) return;
+    if (!currentUser) return;
 
-    let targetDocId = user.id && !String(user.id).startsWith("local_") ? user.id : null;
+    let targetDocId = currentUser.id && !String(currentUser.id).startsWith("local_") ? currentUser.id : null;
     let unsubSnapshot: (() => void) | null = null;
     let isTerminating = false;
 
@@ -525,7 +690,7 @@ export default function App() {
       localStorage.removeItem("sigep_session_token");
       sessionStorage.removeItem("session_start");
 
-      setUser(null);
+      setCurrentUser(null);
       setView("login");
       setSubMenuStack([]);
       setHistoryStack([]);
@@ -549,11 +714,11 @@ export default function App() {
     const setupListener = async () => {
       try {
         let docIdToListen = targetDocId;
-        if (!docIdToListen && (user.email || user.nuit)) {
+        if (!docIdToListen && (currentUser.email || currentUser.nuit)) {
           const usersRef = collection(db, "users");
-          const q = user.email
-            ? query(usersRef, where("email", "==", String(user.email).toLowerCase().trim()))
-            : query(usersRef, where("nuit", "==", String(user.nuit).trim()));
+          const q = currentUser.email
+            ? query(usersRef, where("email", "==", String(currentUser.email).toLowerCase().trim()))
+            : query(usersRef, where("nuit", "==", String(currentUser.nuit).trim()));
           const snap = await getDocs(q);
           if (!snap.empty) {
             docIdToListen = snap.docs[0].id;
@@ -592,11 +757,11 @@ export default function App() {
           if (!localToken) return;
 
           let docId = targetDocId;
-          if (!docId && (user.email || user.nuit)) {
+          if (!docId && (currentUser.email || currentUser.nuit)) {
             const usersRef = collection(db, "users");
-            const q = user.email
-              ? query(usersRef, where("email", "==", String(user.email).toLowerCase().trim()))
-              : query(usersRef, where("nuit", "==", String(user.nuit).trim()));
+            const q = currentUser.email
+              ? query(usersRef, where("email", "==", String(currentUser.email).toLowerCase().trim()))
+              : query(usersRef, where("nuit", "==", String(currentUser.nuit).trim()));
             const snap = await getDocs(q);
             if (!snap.empty) docId = snap.docs[0].id;
           }
@@ -622,7 +787,7 @@ export default function App() {
       window.removeEventListener("focus", checkActiveSession);
       document.removeEventListener("visibilitychange", checkActiveSession);
     };
-  }, [user?.id, user?.email, user?.nuit]);
+  }, [currentUser?.id, currentUser?.email, currentUser?.nuit]);
 
   // Garantir que os dados do Administrador estejam na base de dados de forma assíncrona em segundo plano
   useEffect(() => {
@@ -682,20 +847,20 @@ export default function App() {
             await deleteDoc(doc(db, "colaboradores", "ST849547771"));
           } catch (_) {}
           
-          if (user) {
-            const isDeveloper = user.email === "slaitertripas@gmail.com";
+          if (currentUser) {
+            const isDeveloper = currentUser.email === "slaitertripas@gmail.com";
             const isAdmin =
-              user.role === "Administrador" ||
-              user.role === "Admin" ||
-              String(user.role).toLowerCase().includes("admin");
+              currentUser.role === "Administrador" ||
+              currentUser.role === "Admin" ||
+              String(currentUser.role).toLowerCase().includes("admin");
 
-            if ((isDeveloper || isAdmin) && user.status !== "Afetado") {
-              const updatedUser = { ...user, status: "Afetado" };
-              setUser(updatedUser);
+            if ((isDeveloper || isAdmin) && currentUser.status !== "Afetado") {
+              const updatedUser = { ...currentUser, status: "Afetado" };
+              setCurrentUser(updatedUser);
               localStorage.setItem("sigep_user", safeJSONStringify(updatedUser));
               localStorage.setItem("sigep_logged_in_user", safeJSONStringify(updatedUser));
 
-              const q = query(usersRef, where("email", "==", user.email || ""));
+              const q = query(usersRef, where("email", "==", currentUser.email || ""));
               const snap = await getDocs(q);
               if (!snap.empty) {
                 await updateDoc(doc(db, "users", snap.docs[0].id), {
@@ -729,23 +894,23 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user && user.id && user.email) {
+    if (currentUser && currentUser.id && currentUser.email) {
       try {
         // Persistir apenas se for um usuário real
-        localStorage.setItem("sigep_last_user_email", user.email);
+        localStorage.setItem("sigep_last_user_email", currentUser.email);
       } catch (e) {
-        console.warn("Failed to persist user data:", e);
+        console.warn("Failed to persist currentUser data:", e);
       }
     }
-  }, [user?.email, user?.id]);
+  }, [currentUser?.email, currentUser?.id]);
 
   // Track Active Session (Heartbeat)
   useEffect(() => {
-    if (!user || !user.id) return;
+    if (!currentUser || !currentUser.id) return;
 
     const updateStatus = async (isOnline: boolean) => {
       try {
-        await firestoreService.users.update(user.id, {
+        await firestoreService.users.update(currentUser.id, {
           lastSeenAt: new Date().toISOString(),
           isOnline: isOnline,
         });
@@ -767,13 +932,13 @@ export default function App() {
       clearInterval(interval);
       window.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [user?.id]);
+  }, [currentUser?.id]);
 
   useEffect(() => {
-    if (user && view) {
+    if (currentUser && view) {
       localStorage.setItem("sigep_current_view", view);
     }
-  }, [view, user]);
+  }, [view, currentUser]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -825,6 +990,8 @@ export default function App() {
     // Ouvinte para mudar de vista globalmente
     const handleOpenViewEvent = (e: any) => {
       if (e.detail?.view) {
+        if (e.detail.title) setDashboardTitle(e.detail.title);
+        if (e.detail.activeItem) setDashboardActiveItem(e.detail.activeItem);
         handleSetView(e.detail.view);
       }
     };
@@ -833,12 +1000,12 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.altKey && (e.key === "q" || e.key === "Q")) || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "q" || e.key === "Q"))) {
         e.preventDefault();
-        if (!isSuperBossUser(user)) return;
+        if (!isSuperBossUser(currentUser)) return;
         setShowQuantumModal((prev) => !prev);
       }
     };
     const handleOpenQuantumEvent = () => {
-      if (isSuperBossUser(user)) {
+      if (isSuperBossUser(currentUser)) {
         setShowQuantumModal(true);
       }
     };
@@ -904,7 +1071,7 @@ export default function App() {
     let unsubFinancial = () => {};
     let unsubEfetivo = () => {};
 
-    if (user) {
+    if (currentUser) {
       // Basic data needed across views
       unsubMatrix = firestoreService.matrixActivities.subscribe(
         setMatrixActivities,
@@ -1042,12 +1209,12 @@ export default function App() {
     }
 
     let unsubMessages = () => {};
-    if (user?.id && (view === "dashboard" || view === "menu")) {
+    if (currentUser?.id && (view === "dashboard" || view === "menu")) {
       unsubMessages = firestoreService.messages.subscribe(
-        user.id,
+        currentUser.id,
         (msgs: any[]) => {
           const unread = msgs.filter(
-            (m) => m.recipientId === user.id && !m.read,
+            (m) => m.recipientId === currentUser.id && !m.read,
           ).length;
           setUnreadMessagesCount(unread);
         },
@@ -1075,31 +1242,31 @@ export default function App() {
       ].forEach((unsub) => unsub());
       unsubMessages();
     };
-  }, [user, view]);
+  }, [currentUser, view]);
 
   useEffect(() => {
-    if (!user || isSuperBossUser(user) || !accessAlerts.length) return;
+    if (!currentUser || isSuperBossUser(currentUser) || !accessAlerts.length) return;
 
-    // Filter alerts meant for this user
+    // Filter alerts meant for this currentUser
     const unreadAlerts = accessAlerts.filter(
-      (alert) => !alert.readBy?.includes(user.email),
+      (alert) => !alert.readBy?.includes(currentUser.email),
     );
 
     const relevantAlerts = unreadAlerts.filter((alert) => {
-      const userDept = user.departamento || "";
-      const userDir = user.direcao || "";
+      const userDept = currentUser.departamento || "";
+      const userDir = currentUser.direcao || "";
       const target = alert.targetSector || "";
 
       const isBoss =
-        user.name &&
-        (user.name.toLowerCase().includes("diretor") ||
-          user.name.toLowerCase().includes("chefe"));
+        currentUser.name &&
+        (currentUser.name.toLowerCase().includes("diretor") ||
+          currentUser.name.toLowerCase().includes("chefe"));
       if (!isBoss) return false;
 
       return (
         isMatch(userDept, target) ||
         isMatch(userDir, target) ||
-        isMatch(user.name, target)
+        isMatch(currentUser.name, target)
       );
     });
 
@@ -1117,7 +1284,7 @@ export default function App() {
       relevantAlerts.forEach((alert) => {
         firestoreService.accessAlerts
           .update(alert.id, {
-            readBy: [...(alert.readBy || []), user.email],
+            readBy: [...(alert.readBy || []), currentUser.email],
           })
           .catch((err) =>
             console.error(
@@ -1127,7 +1294,7 @@ export default function App() {
           );
       });
     }
-  }, [accessAlerts, user]);
+  }, [accessAlerts, currentUser]);
 
   useEffect(() => {
     if (efetivoEscolar.length > 0) {
@@ -1146,7 +1313,7 @@ export default function App() {
     localStorage.setItem("sigep_session_token", sessionToken);
 
     const userWithToken = { ...userData, currentSessionToken: sessionToken };
-    setUser(userWithToken);
+    setCurrentUser(userWithToken);
     localStorage.setItem("sigep_logged_in_user", safeJSONStringify(userWithToken));
     localStorage.setItem("sigep_user", safeJSONStringify(userWithToken));
 
@@ -1239,12 +1406,12 @@ export default function App() {
     }
   };
 
-  const handleSelectAdminRoleMode = (mode: "admin" | "chefe" | "user") => {
-    const targetUser = user || extendedUser;
+  const handleSelectAdminRoleMode = (mode: "admin" | "chefe" | "currentUser") => {
+    const targetUser = currentUser || extendedUser;
     if (!targetUser) return;
 
     const updatedUser = { ...targetUser, activeRoleMode: mode };
-    setUser(updatedUser);
+    setCurrentUser(updatedUser);
     localStorage.setItem("sigep_user", safeJSONStringify(updatedUser));
     localStorage.setItem("sigep_logged_in_user", safeJSONStringify(updatedUser));
 
@@ -1373,9 +1540,9 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      if (user?.id) {
+      if (currentUser?.id) {
         firestoreService.users
-          .update(user.id, {
+          .update(currentUser.id, {
             isOnline: false,
           })
           .catch((e: any) => {
@@ -1387,7 +1554,7 @@ export default function App() {
       console.warn("Erro no logout:", e?.message || String(e));
     }
 
-    setUser(null);
+    setCurrentUser(null);
     localStorage.removeItem("sigep_current_view");
     localStorage.removeItem("sigep_logged_in_user");
     localStorage.removeItem("sigep_user");
@@ -1532,6 +1699,7 @@ export default function App() {
   }, [view, dashboardTitle, subMenuStack, dashboardActiveItem, dashboardItems]);
 
   const handleSetView = useCallback((newView: typeof view) => {
+    console.log("Navegando para:", newView);
     if (newView !== view) {
       pushCurrentToHistory();
       setView(newView);
@@ -1567,45 +1735,46 @@ export default function App() {
     );
   };
 
-  const isAdmin = isSuperBossUser(user) || isInstitutionalAdminUser(user);
+  const isAdmin = isSuperBossUser(currentUser) || isInstitutionalAdminUser(currentUser);
+
+  const safeNavigate = (title: string, view: string, dashboardTitle?: string, dashboardActiveItem?: string) => {
+    pushCurrentToHistory();
+    setDashboardTitle(dashboardTitle || title);
+    if (dashboardActiveItem) setDashboardActiveItem(dashboardActiveItem);
+    setView(view as any);
+  };
 
   const openSubMenu = (
     title: string,
     items: { title: string; subItems?: { title: string }[] }[],
   ) => {
-    pushCurrentToHistory();
-
     const lower = (title || "").toLowerCase().trim();
 
-    if (title === "Caixa de Mensagens") {
-      setDashboardTitle("Caixa de Mensagens");
-      setDashboardActiveItem("Caixa de Mensagens");
-      setView("dashboard");
+    if (MENU_NAVIGATION_MAP[lower]) {
+      const cfg = MENU_NAVIGATION_MAP[lower];
+      safeNavigate(title, cfg.view, cfg.dashboardTitle, cfg.dashboardActiveItem);
       return;
     }
+    // ... rest of the original code ...
+    if (title === "Caixa de Mensagens") {
     if (title === "Assinatura Digital") {
-      setDashboardTitle(title);
-      setView("assinatura_digital");
+      safeNavigate(title, "assinatura_digital");
       return;
     }
     if (title === "Economato" || title === "Gestão de Economato") {
-      setDashboardTitle("Gestão de Economato");
-      setView("economato");
+      safeNavigate(title, "economato", "Gestão de Economato");
       return;
     }
     if (title === "Gestão Patrimonial") {
-      setDashboardTitle(title);
-      setView("gestao_patrimonial");
+      safeNavigate(title, "gestao_patrimonial");
       return;
     }
     if (title === "Documentos Normativos") {
-      setDashboardTitle(title);
-      setView("documentos_normativos");
+      safeNavigate(title, "documentos_normativos");
       return;
     }
     if (title === "Relatórios") {
-      setDashboardTitle(title);
-      setView("relatorios");
+      safeNavigate(title, "relatorios");
       return;
     }
     if (
@@ -1614,24 +1783,19 @@ export default function App() {
       lower === "gestão de colaboradores" ||
       lower === "gestao de colaboradores"
     ) {
-      setDashboardTitle("Gestão de Colaboradores");
-      setDashboardActiveItem("Gestão de Pessoal");
-      setView("colaboradores");
+      safeNavigate(title, "colaboradores", "Gestão de Colaboradores", "Gestão de Pessoal");
       return;
     }
     if (title === "Monografia" || title === "Gerar Monografia") {
-      setDashboardTitle(title);
-      setView("monografia");
+      safeNavigate(title, "monografia");
       return;
     }
     if (title === "Gestão de Produtos e Preços") {
-      setDashboardTitle(title);
-      setView("produtos_precos");
+      safeNavigate(title, "produtos_precos");
       return;
     }
     if (title === "Gestão de Fornecedores" || title === "Fornecedores") {
-      setDashboardTitle(title);
-      setView("supplier_management");
+      safeNavigate(title, "supplier_management");
       return;
     }
     if (
@@ -1642,18 +1806,15 @@ export default function App() {
       title === "SupplierRegistration" ||
       title === "UGEA_SupplierForm"
     ) {
-      setDashboardTitle("Registo de Fornecedor");
-      setView("supplier_form");
+      safeNavigate("Registo de Fornecedor", "supplier_form");
       return;
     }
     if (title === "Plano de Aquisição") {
-      setDashboardTitle(title);
-      setView("plano_aquisicao");
+      safeNavigate(title, "plano_aquisicao");
       return;
     }
     if (title === "Plano de Contratação") {
-      setDashboardTitle(title);
-      setView("plano_contratacao");
+      safeNavigate(title, "plano_contratacao");
       return;
     }
 
@@ -1835,80 +1996,25 @@ export default function App() {
   const currentSubMenu =
     subMenuStack.length > 0 ? subMenuStack[subMenuStack.length - 1] : null;
 
-  const extendedUser = React.useMemo(() => {
-    if (!user) return null;
+  const filteredEvents = React.useMemo(() => {
+    if (!currentUser) return events;
+    if (isSuperBossUser(currentUser)) return events;
+    const userInstId = currentUser.instituicaoId || activeInst?.id || "isps";
+    return events.filter((e: any) => {
+      const isNationalHoliday = 
+        e.isNationalHoliday || 
+        e.scope === "global" || 
+        e.scope === "nacional" || 
+        String(e.type || "").toLowerCase().includes("feriado nacional") ||
+        String(e.category || "").toLowerCase().includes("feriado nacional") ||
+        String(e.title || "").toLowerCase().includes("feriado nacional");
 
-    // Quick lookups using find() - still O(N) but memoized so it only runs when data changes
-    // Only search in colaboradores if user is NOT found in processos to save cycles
-    const userProcess = (processos || []).find(
-      (p) =>
-        (p.email &&
-          user.email &&
-          p.email.toLowerCase() === user.email.toLowerCase()) ||
-        (p.nuit && user.nuit && p.nuit === user.nuit),
-    );
+      if (isNationalHoliday) return true;
 
-    let colab = null;
-    if (!userProcess && colaboradores && colaboradores.length > 0) {
-      colab = colaboradores.find(
-        (c) =>
-          (c.email &&
-            user.email &&
-            c.email.toLowerCase() === user.email.toLowerCase()) ||
-          (c.nuit && user.nuit && c.nuit === user.nuit),
-      );
-    }
-
-    const role =
-      userProcess?.cargoChefia &&
-      userProcess.cargoChefia !== "Nenhum" &&
-      userProcess.cargoChefia !== "-"
-        ? userProcess.cargoChefia
-        : colab?.cargoChefia &&
-            colab.cargoChefia !== "Nenhum" &&
-            colab.cargoChefia !== "-"
-          ? colab.cargoChefia
-          : user.role;
-
-    const photoURL =
-      userProcess?.fotoUrl || userProcess?.foto || user.photoURL || user.photo;
-
-    const isOwner = isSuperBossUser(user) || user.isOwner;
-    const systemOwnerName = isOwner ? (localStorage.getItem("proprietarioName") || user.name) : user.name;
-    const systemOwnerPhoto = isOwner ? (localStorage.getItem("proprietarioPhoto") || photoURL) : photoURL;
-
-    const targetSource = userProcess || colab;
-    return {
-      ...user,
-      name: systemOwnerName,
-      nome: systemOwnerName,
-      role,
-      photoURL: systemOwnerPhoto,
-      title:
-        targetSource?.title ||
-        targetSource?.cargoChefia ||
-        targetSource?.cargo ||
-        user.title,
-      cargo: targetSource?.cargo || user.cargo,
-      cargoChefia: targetSource?.cargoChefia || user.cargoChefia,
-      isChefia:
-        targetSource?.isChefia ||
-        user.isChefia ||
-        !!(
-          targetSource?.cargoChefia &&
-          targetSource?.cargoChefia !== "Nenhum" &&
-          targetSource?.cargoChefia !== "-"
-        ),
-      estadoMandato: targetSource?.estadoMandato || user.estadoMandato,
-      status: targetSource?.status || user.status,
-      direcao: targetSource?.direcao || user.direcao,
-      departamento: targetSource?.departamento || user.departamento,
-      reparticao: targetSource?.reparticao || user.reparticao,
-      setor: targetSource?.setor || user.setor,
-      areaDeAfetacao: targetSource?.areaDeAfetacao || user.areaDeAfetacao,
-      setoresAtribuidos: targetSource?.setoresAtribuidos || user.setoresAtribuidos || [],
-    };
-  }, [user?.email, user?.nuit, processos?.length, colaboradores?.length]);
+      const eventInstId = e.instituicaoId || e.institutionId || "isps";
+      return eventInstId === userInstId;
+    });
+  }, [events, currentUser, activeInst?.id]);
 
   return (
     <div
@@ -1939,6 +2045,9 @@ export default function App() {
                 user={extendedUser}
                 activeInst={activeInst}
                 colaboradores={colaboradores}
+                processos={processos}
+                matrixActivities={matrixActivities}
+                instituicoes={instituicoes}
                 onBack={goBack}
                 showBack={historyStack.length > 0 || ((view as string) !== "menu" && (view as string) !== "login" && (view as string) !== "home")}
                 onBreadcrumbClick={handleBreadcrumbClick}
@@ -1967,13 +2076,13 @@ export default function App() {
             <div className="flex-grow relative flex flex-col min-h-0 overflow-y-auto mt-0">
           <ViewRenderer
             view={view}
-            user={user}
+            user={currentUser}
             extendedUser={extendedUser}
             dashboardTitle={dashboardTitle}
             dashboardItems={dashboardItems}
             processos={processos}
             colaboradores={colaboradores}
-            events={events}
+            events={filteredEvents}
             expedientes={expedientes}
             libraryRegistrations={libraryRegistrations}
             bookRegistrations={bookRegistrations}
@@ -2006,6 +2115,72 @@ export default function App() {
             onSelectSector={handleSelectSector}
           />
             </div>
+
+            {/* Rodapé Institucional com Logotipo SIGEP em movimento contínuo estilo apresentação */}
+            {view !== "home" && view !== "presentation" && view !== "login" && (
+              <footer
+                onClick={() => setShowFooterInfoModal(true)}
+                className="w-full bg-[#050B35] border-t-2 border-[#FFD700] py-2 overflow-hidden z-[40] shrink-0 relative flex items-center select-none shadow-[inset_0_0_20px_rgba(255,215,0,0.25)] cursor-pointer hover:bg-[#080F42] transition-colors group"
+                title="Clique para ver os detalhes da versão e informações de copyright"
+              >
+                {/* Efeito de fade suave nas laterais */}
+                <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-[#050B35] to-transparent z-10 pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#050B35] to-transparent z-10 pointer-events-none" />
+
+                <div className="animate-footer-marquee items-center gap-12 whitespace-nowrap">
+                  {[...Array(4)].map((_, idx) => (
+                    <div key={idx} className="flex items-center gap-6 shrink-0">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-5 h-5 shrink-0">
+                          <SigepLogo size="xs" showText={false} className="!w-5 !h-5" />
+                        </div>
+                        <span 
+                          className="text-[10px] font-black tracking-widest uppercase"
+                          style={{ 
+                            color: "#FFD700",
+                            textShadow: "1px 1px 0px #000000",
+                          }}
+                        >
+                          SIGEP - Sistema Integrado de Gestão de processo
+                        </span>
+                      </div>
+
+                      {/* Separador vertical sólido */}
+                      <span className="h-4 w-[2px] bg-[#FFD700] shrink-0"></span>
+
+                      <span
+                        className="text-[9px] font-black uppercase tracking-widest shrink-0"
+                        style={{ 
+                          color: "#FFD700",
+                          textShadow: "1px 1px 0px #000000",
+                        }}
+                      >
+                        Desenvolvido por Slaiter Tripas
+                      </span>
+
+                      {/* Separador vertical sólido */}
+                      <span className="h-4 w-[2px] bg-[#FFD700] shrink-0"></span>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          className="text-[9px] font-black uppercase tracking-widest"
+                          style={{ 
+                            color: "#FFD700",
+                            textShadow: "1px 1px 0px #000000",
+                          }}
+                        >
+                          Versão 2026.9.1 Quântica
+                        </span>
+                        <FirebaseStatusIndicator />
+                      </div>
+
+                      {/* Separador de transição sólido */}
+                      <span className="text-[#FFD700] text-xs font-black px-2 shrink-0">✦</span>
+                    </div>
+                  ))}
+                </div>
+              </footer>
+            )}
           </motion.div>
         ) : (
           <div className="fixed inset-0 z-[10000] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-slate-100">
@@ -2036,20 +2211,8 @@ export default function App() {
 
         <AlertModal isOpen={!!modalMessage} onClose={() => setModalMessage("")} message={modalMessage} />
         <BackupRestoreModal isOpen={showBackupModal} onClose={() => setShowBackupModal(false)} />
-        
-        {view !== "login" && isSuperBossUser(user) && (
-          <>
-            <QuantumFloatingOrb
-              currentView={dashboardTitle || view}
-              onOpenCockpit={() => setShowQuantumModal(true)}
-            />
-            <QuantumCopilotModal
-              isOpen={showQuantumModal}
-              onClose={() => setShowQuantumModal(false)}
-              currentView={dashboardTitle || view}
-            />
-          </>
-        )}
+        <FooterInfoModal isOpen={showFooterInfoModal} onClose={() => setShowFooterInfoModal(false)} />
+        {showDiagnosticPanel && <DiagnosticPanel onClose={() => setShowDiagnosticPanel(false)} />}
         
         {sessionTerminatedNotice && (
           <div className="fixed inset-0 z-[999999] bg-[#0c1236]/85 backdrop-blur-md flex items-center justify-center p-4">
@@ -2085,6 +2248,97 @@ export default function App() {
             <button onClick={() => setBackupAlert(null)} className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"><X size={18} /></button>
           </div>
         )}
+
+        {/* Overlay de Alertas do Sistema */}
+        <div className="fixed bottom-5 right-5 z-[99999] flex flex-col gap-3 max-w-sm">
+          <AnimatePresence>
+            {systemAlerts.map((alert) => (
+              <motion.div
+                key={alert.id}
+                initial={{ opacity: 0, x: 50, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 50, scale: 0.9 }}
+                className={`p-4 rounded-2xl shadow-2xl border-2 flex items-start gap-3 ${
+                  alert.type === "critical" ? "bg-red-600 border-red-400 text-white" :
+                  alert.type === "warning" ? "bg-amber-500 border-amber-300 text-slate-900" :
+                  alert.type === "holiday" ? "bg-indigo-600 border-indigo-400 text-white" :
+                  "bg-blue-600 border-blue-400 text-white"
+                }`}
+              >
+                <div className={`p-2 rounded-xl shrink-0 ${
+                  alert.type === "critical" ? "bg-red-700" :
+                  alert.type === "warning" ? "bg-amber-600" :
+                  alert.type === "holiday" ? "bg-indigo-700" :
+                  "bg-blue-700"
+                }`}>
+                  {alert.type === "critical" ? <ShieldAlert size={20} /> : 
+                   alert.type === "warning" ? <AlertTriangle size={20} /> :
+                   alert.type === "holiday" ? <Calendar size={20} /> :
+                   <Bell size={20} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] font-black uppercase tracking-widest opacity-80 block mb-0.5">
+                    {alert.type === "holiday" ? "Feriado / Data Especial" : "Alerta do Sistema"}
+                  </span>
+                  <h4 className="font-bold text-sm leading-tight mb-1">{alert.title}</h4>
+                  <p className="text-xs opacity-90 leading-relaxed">{alert.message}</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    const newDismissed = [...dismissedAlerts, alert.id];
+                    setDismissedAlerts(newDismissed);
+                    localStorage.setItem("sigep_dismissed_alerts", JSON.stringify(newDismissed));
+                    setSystemAlerts(prev => prev.filter(a => a.id !== alert.id));
+                  }}
+                  className="opacity-50 hover:opacity-100 p-1"
+                >
+                  <X size={16} />
+                </button>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Overlay de Notificações Internas (Institucionais) */}
+        <div className="fixed top-24 right-5 z-[99999] flex flex-col gap-3 max-w-sm pointer-events-none">
+          <AnimatePresence>
+            {userNotifications.map((notif) => (
+              <motion.div
+                key={notif.id}
+                initial={{ opacity: 0, x: 50, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 50, scale: 0.9 }}
+                className="pointer-events-auto p-4 rounded-2xl shadow-2xl border-2 bg-white border-blue-100 flex items-start gap-3"
+              >
+                <div className={`p-2 rounded-xl shrink-0 ${
+                  notif.type === "activity" ? "bg-amber-100 text-amber-600" :
+                  notif.type === "document" ? "bg-emerald-100 text-emerald-600" :
+                  "bg-blue-100 text-blue-600"
+                }`}>
+                  {notif.type === "activity" ? <Clock size={20} /> : 
+                   notif.type === "document" ? <FileText size={20} /> :
+                   <Bell size={20} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">
+                    {notif.type === "activity" ? "Nova Atividade" : 
+                     notif.type === "document" ? "Documento Pendente" : "Notificação"}
+                  </span>
+                  <h4 className="font-bold text-sm leading-tight mb-1 text-slate-800">{notif.title}</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">{notif.message}</p>
+                </div>
+                <button 
+                  onClick={() => firestoreService.notifications.update(notif.id, { read: true })}
+                  className="text-slate-300 hover:text-slate-600 p-1"
+                >
+                  <X size={16} />
+                </button>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
       </div>
     );
   }
+}
+

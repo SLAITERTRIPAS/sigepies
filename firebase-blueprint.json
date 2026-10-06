@@ -1,5 +1,20 @@
 {
   "entities": {
+    "AccessAlert": {
+      "title": "Alerta de Acesso Indevido",
+      "description": "Registo de tentativa de acesso não autorizado a departamentos ou áreas restritas",
+      "type": "object",
+      "properties": {
+        "userName": { "type": "string", "maxLength": 200 },
+        "userEmail": { "type": "string", "maxLength": 200 },
+        "userRole": { "type": "string", "maxLength": 100 },
+        "userNuit": { "type": "string", "maxLength": 50 },
+        "targetSector": { "type": "string", "maxLength": 200 },
+        "timestamp": { "type": "string", "maxLength": 100 },
+        "readBy": { "type": "array" }
+      },
+      "required": ["userName", "targetSector", "timestamp"]
+    },
     "ArchiveDocument": {
       "title": "Documento de Arquivo",
       "description": "Registo de documento histórico depositado no Arquivo Morto",
@@ -94,6 +109,7 @@
             "Feriado Institucional"
           ]
         },
+        "scope": { "type": "string", "enum": ["global", "local"] },
         "agenda": { "type": "string", "maxLength": 2000 },
         "preside": { "type": "string", "maxLength": 200 },
         "remetente": { "type": "string", "maxLength": 200 },
@@ -103,6 +119,22 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "date", "startTime", "endTime"]
+    },
+    "SystemAlert": {
+      "title": "Alerta do Sistema",
+      "description": "Alerta geral para todos os usuários do SIGEP",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "type": { "type": "string", "enum": ["info", "warning", "critical", "holiday"] },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "active": { "type": "boolean" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "type", "active"]
     },
     "Nota": {
       "title": "Daily Note",
@@ -372,6 +404,22 @@
         "tenantId": { "type": "string", "maxLength": 50 }
       },
       "required": ["titulo", "autor", "orientador"]
+    },
+    "Notification": {
+      "title": "Notificação",
+      "description": "Notificação interna para usuários de uma instituição",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 1000 },
+        "type": { "type": "string", "enum": ["activity", "document", "info", "warning"] },
+        "instituicaoId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "read": { "type": "boolean" },
+        "link": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "type", "instituicaoId"]
     }
   },
   "firestore": {
@@ -464,6 +512,10 @@
       "schema": "Monografia",
       "description": "Monografias e trabalhos de fim de curso"
     },
+    "notifications": {
+      "schema": "Notification",
+      "description": "Internal notifications for institution users"
+    },
     "bolsas": {
       "schema": "MatrixActivity",
       "description": "Gestão de bolsas de estudo"
@@ -476,6 +528,14 @@
     "config_sistema": {
       "schema": "FinancialData",
       "description": "Configurações globais do sistema"
+    },
+    "system_alerts": {
+      "schema": "SystemAlert",
+      "description": "Alertas globais do sistema para todos os usuários"
+    },
+    "access_alerts": {
+      "schema": "AccessAlert",
+      "description": "Tentativas de acesso indevido e alertas de intrusão por departamento"
     }
   }
 }

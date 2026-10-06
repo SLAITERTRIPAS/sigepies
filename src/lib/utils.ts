@@ -249,6 +249,19 @@ export function safeJSONStringify(
 }
 
 /**
+ * Faz parse de JSON com segurança, retornando um valor padrão em caso de erro.
+ */
+export function safeJSONParse<T>(json: string | null, defaultValue: T): T {
+  if (!json || json === "undefined" || json === "null" || json.trim() === "") return defaultValue;
+  try {
+    return JSON.parse(json) as T;
+  } catch (e) {
+    console.warn("Erro ao fazer parse de JSON:", e, "Input:", json);
+    return defaultValue;
+  }
+}
+
+/**
  * Prompts the user for confirmation before leaving the workspace.
  */
 export const confirmWorkspaceExit = (callback: () => void) => {
@@ -1630,31 +1643,6 @@ export function getDirectionAbbreviation(direcao: string): string {
 
   return direcao;
 }
-
-export const checkIsSystemAdmin = (c: any): boolean => {
-  if (!c) return false;
-
-  const cargoChefia = (c.cargoChefia || "").toLowerCase();
-  const categoria = (c.categoria || "").toLowerCase();
-  const cargo = (c.cargo || "").toLowerCase();
-  const role = (c.role || "").toLowerCase();
-  const title = (c.title || "").toLowerCase();
-
-  return (
-    cargoChefia === "proprietário do sistema" ||
-    cargoChefia === "proprietario do sistema" ||
-    cargoChefia === "administrador de sistema" ||
-    cargoChefia === "administrador do sistema" ||
-    cargo === "proprietario do sistema" ||
-    cargo === "proprietário do sistema" ||
-    cargo === "programador e proprietário do sistema" ||
-    cargo === "proprietário e programador do sistema" ||
-    categoria.includes("proprietário e programador") ||
-    cargo.includes("programador do sistema") ||
-    cargo === "administrador de sistema" ||
-    cargo === "administrador do sistema"
-  );
-};
 
 /**
  * Retorna as 3 iniciais da actividade com base no nome

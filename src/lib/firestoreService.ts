@@ -49,6 +49,7 @@ export async function wipeAllTestData() {
     "system_backups",
     "attendance_logs",
     "system_logs",
+    "system_alerts",
     "direcoes_organicas",
     "estrutura_adicionais",
     "orgaos_custom",
@@ -732,7 +733,68 @@ function createCollectionService<T>(
         return null;
       }
     },
-    add: (data: any) => addToCollection(collectionName, data),
+    add: async (data: any) => {
+      // Unicidade Soberana para 'users' e 'colaboradores'
+      if ((collectionName === "users" || collectionName === "colaboradores") && (data.email || data.nuit)) {
+        try {
+          const colRef = collection(db, collectionName);
+          const emailVal = data.email ? String(data.email).toLowerCase().trim() : "";
+          const nuitVal = data.nuit ? String(data.nuit).trim() : "";
+          
+          let existingId = null;
+
+          // 1. Tentar encontrar por email (mais preciso para credenciais)
+          if (emailVal) {
+            const qEmail = query(colRef, where("email", "==", emailVal), limit(1));
+            const snapEmail = await getDocs(qEmail);
+            if (!snapEmail.empty) {
+              existingId = snapEmail.docs[0].id;
+            }
+          }
+
+          // 2. Tentar encontrar por NUIT (identificador único institucional) se ainda não encontrou
+          if (!existingId && nuitVal) {
+            const qNuit = query(colRef, where("nuit", "==", nuitVal), limit(1));
+            const snapNuit = await getDocs(qNuit);
+            if (!snapNuit.empty) {
+              existingId = snapNuit.docs[0].id;
+            }
+            
+            // Tentar também como número se falhou
+            if (!existingId && /^\d+$/.test(nuitVal)) {
+              const qNuitNum = query(colRef, where("nuit", "==", Number(nuitVal)), limit(1));
+              const snapNuitNum = await getDocs(qNuitNum);
+              if (!snapNuitNum.empty) {
+                existingId = snapNuitNum.docs[0].id;
+              }
+            }
+          }
+          
+          if (existingId) {
+            console.log(`[Unicidade] Utilizador existente encontrado (${existingId}). Atualizando registo único.`);
+            await updateInCollection(collectionName, existingId, data);
+            return existingId;
+          }
+
+          // 3. Se é um novo registo, tentar usar um ID determinístico em vez de aleatório
+          const deterministicId = data.id || (data.nome && data.nuit ? generateCollaboratorId(data.nome, data.nuit) : null);
+          if (deterministicId) {
+            await setDoc(doc(db, collectionName, deterministicId), {
+              ...cleanObject(data),
+              id: deterministicId,
+              tenantId: getInstituicaoId(),
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              synced: true
+            }, { merge: true });
+            return deterministicId;
+          }
+        } catch (e) {
+          console.warn("Aviso ao verificar duplicados em add:", e);
+        }
+      }
+      return addToCollection(collectionName, data);
+    },
     update: (id: string, data: any) =>
       updateInCollection(collectionName, id, data),
     replace: async (id: string, data: any) => {
@@ -771,29 +833,57 @@ function createCollectionService<T>(
     },
     set: async (id: string, data: any) => {
       try {
+        let targetId = id;
+        // Unicidade Soberana: Buscar por email ou NUIT usando queries eficientes
+        if ((collectionName === "users" || collectionName === "colaboradores") && (data.email || data.nuit)) {
+          try {
+            const colRef = collection(db, collectionName);
+            const emailVal = data.email ? String(data.email).toLowerCase().trim() : "";
+            const nuitVal = data.nuit ? String(data.nuit).trim() : "";
+            const nuitNum = /^\d+$/.test(nuitVal) ? Number(nuitVal) : null;
+            
+            const checks = [];
+            if (emailVal) checks.push(getDocs(query(colRef, where("email", "==", emailVal))));
+            if (nuitVal) checks.push(getDocs(query(colRef, where("nuit", "==", nuitVal))));
+            if (nuitNum !== null) checks.push(getDocs(query(colRef, where("nuit", "==", nuitNum))));
+            
+            const results = await Promise.all(checks);
+            for (const snap of results) {
+              if (!snap.empty) {
+                targetId = snap.docs[0].id;
+                break;
+              }
+            }
+          } catch (e) {
+            console.warn("Aviso ao verificar duplicados em set:", e);
+          }
+        }
+
         try {
-          const directKey = `sigep_doc_${collectionName}_${id}`;
-          localStorage.setItem(directKey, safeJSONStringify({ ...data, id }));
+          const directKey = `sigep_doc_${collectionName}_${targetId}`;
+          localStorage.setItem(directKey, safeJSONStringify({ ...data, id: targetId }));
           const local = getLocalData(collectionName);
-          const idx = local.findIndex((it: any) => it.id === id);
+          const idx = local.findIndex((it: any) => it.id === targetId);
           if (idx >= 0) {
-            local[idx] = { ...local[idx], ...data, id };
+            local[idx] = { ...local[idx], ...data, id: targetId };
           } else {
-            local.push({ ...data, id });
+            local.push({ ...data, id: targetId });
           }
           saveLocalData(collectionName, local);
         } catch (_) {}
 
-        const docRef = doc(db, collectionName, id);
+        const docRef = doc(db, collectionName, targetId);
         await setDoc(
           docRef,
           {
             ...data,
-            uid: auth.currentUser?.uid || undefined,
+            id: targetId,
+            uid: auth.currentUser?.uid || data.uid || undefined,
             updatedAt: serverTimestamp(),
           },
           { merge: true },
         );
+        return targetId;
       } catch (error) {
         handleFirestoreError(
           error,
@@ -1194,6 +1284,8 @@ export const firestoreService = {
   reports: createCollectionService<any>("reports"),
   plan_schedules: createCollectionService<any>("plan_schedules"),
   historico_chefias: createCollectionService<any>("historico_chefias"),
+  notifications: createCollectionService<any>("notifications", "createdAt"),
+  systemAlerts: createCollectionService<any>("system_alerts", "createdAt"),
   tetosOrcamentais: createCollectionService<any>("tetos_orcamentais", null),
   produtosUnificados: createCollectionService<any>("produtos_unificados", null),
   password_reset_requests: createCollectionService<any>("password_reset_requests"),
@@ -1205,6 +1297,30 @@ export const firestoreService = {
   instituicoes: createCollectionService<any>("instituicoes"),
   sector_menu_configs: createCollectionService<any>("sector_menu_configs"),
   estrutura_renames: createCollectionService<any>("estrutura_renames"),
+  checkSupplierExists: async (nif: string, nome: string): Promise<boolean> => {
+    try {
+      const colRef = collection(db, "suppliers");
+      
+      // Check by NIF
+      if (nif) {
+        const qNif = query(colRef, where("nif", "==", nif), limit(1));
+        const snapNif = await getDocs(qNif);
+        if (!snapNif.empty) return true;
+      }
+
+      // Check by Nome
+      if (nome) {
+        const qNome = query(colRef, where("nome", "==", nome), limit(1));
+        const snapNome = await getDocs(qNome);
+        if (!snapNome.empty) return true;
+      }
+
+      return false;
+    } catch (e) {
+      console.error("Erro ao verificar duplicidade de fornecedor:", e);
+      return false;
+    }
+  },
   resetUserPasswordToDefault,
   clearDepartmentActivities,
   deleteDirectionAndCascade,
@@ -1775,7 +1891,8 @@ export const firestoreService = {
               existingUser.role !== userData.role ||
               existingUser.reparticao !== userData.reparticao ||
               existingUser.departamento !== userData.departamento ||
-              existingUser.direcao !== userData.direcao;
+              existingUser.direcao !== userData.direcao ||
+              !existingUser.collabId;
 
             if (hasChanges) {
               const userRef = doc(db, "users", existingUser.id);
@@ -1783,12 +1900,17 @@ export const firestoreService = {
               updatedCount++;
             }
           } else {
-            await addDoc(collection(db, "users"), {
+            // Use a consistent ID for the user doc to prevent duplicates
+            const docId = col.id || generateCollaboratorId(col.nome, col.nuit);
+            await setDoc(doc(db, "users", String(docId)), {
               ...userData,
+              id: docId,
               password: "1234",
               mustChangePassword: true,
+              senhaPadraoBloqueada: false,
+              isFirstAccess: true,
               createdAt: serverTimestamp(),
-            });
+            }, { merge: true });
             createdCount++;
           }
         }

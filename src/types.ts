@@ -168,6 +168,7 @@ export interface Event {
   organizador?: string;
   remetente?: string;
   status?: "active" | "archived";
+  scope?: "global" | "institucional" | "setorial" | string;
 }
 
 export interface Expediente {
@@ -491,7 +492,12 @@ export interface MatrixActivity {
     | "setorial"
     | "institucional"
     | "direcao"
-    | "departamento";
+    | "departamento"
+    | "Pendente"
+    | "Em Curso"
+    | "Concluído"
+    | "Validado"
+    | string;
   responsavel?: string;
   responsavelEmail?: string;
   prazo?: string;

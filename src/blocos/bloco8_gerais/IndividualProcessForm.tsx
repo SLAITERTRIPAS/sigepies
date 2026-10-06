@@ -55,7 +55,6 @@ import { getReparticoesPorDepartamento } from "../../lib/instituicaoEstruturaSer
 import MainHeader from "../bloco1_apresentacao/MainHeader";
 import {
   classifyTipo,
-  checkIsSystemAdmin,
   generateIndividualProcessLink,
   formatProcessNumber,
   extractProcessSequence,

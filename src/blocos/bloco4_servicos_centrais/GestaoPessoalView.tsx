@@ -111,7 +111,6 @@ import {
   classifyTipo,
   mergeColaboradores,
   toTitleCase,
-  checkIsSystemAdmin,
   formatEuropeanDate,
   extractProcessSequence,
   sortProcessesNumerically,
@@ -857,7 +856,7 @@ export default function GestaoPessoalView({
 
   const statsMetrics = {
     docenteTodos: colaboradores.filter((c) => {
-      const isSystemAdmin = checkIsSystemAdmin(c);
+      const isSystemAdmin = isSuperBossUser(c);
       if (isSystemAdmin) return false;
       return (
         classifyTipo(c) === "Docente" &&
@@ -865,7 +864,7 @@ export default function GestaoPessoalView({
       );
     }).length,
     docenteQuadro: colaboradores.filter((c) => {
-      const isSystemAdmin = checkIsSystemAdmin(c);
+      const isSystemAdmin = isSuperBossUser(c);
       if (isSystemAdmin) return false;
       return (
         classifyTipo(c) === "Docente" &&
@@ -874,7 +873,7 @@ export default function GestaoPessoalView({
       );
     }).length,
     docenteNaoQuadro: colaboradores.filter((c) => {
-      const isSystemAdmin = checkIsSystemAdmin(c);
+      const isSystemAdmin = isSuperBossUser(c);
       if (isSystemAdmin) return false;
       return (
         classifyTipo(c) === "Docente" &&
@@ -883,7 +882,7 @@ export default function GestaoPessoalView({
       );
     }).length,
     ctaTodos: colaboradores.filter((c) => {
-      const isSystemAdmin = checkIsSystemAdmin(c);
+      const isSystemAdmin = isSuperBossUser(c);
       if (isSystemAdmin) return false;
       return (
         classifyTipo(c) === "CTA" &&
@@ -891,7 +890,7 @@ export default function GestaoPessoalView({
       );
     }).length,
     ctaQuadro: colaboradores.filter((c) => {
-      const isSystemAdmin = checkIsSystemAdmin(c);
+      const isSystemAdmin = isSuperBossUser(c);
       if (isSystemAdmin) return false;
       return (
         classifyTipo(c) === "CTA" &&
@@ -900,7 +899,7 @@ export default function GestaoPessoalView({
       );
     }).length,
     ctaNaoQuadro: colaboradores.filter((c) => {
-      const isSystemAdmin = checkIsSystemAdmin(c);
+      const isSystemAdmin = isSuperBossUser(c);
       if (isSystemAdmin) return false;
       return (
         classifyTipo(c) === "CTA" &&
@@ -944,7 +943,7 @@ export default function GestaoPessoalView({
     () =>
       colaboradores.filter(
         (c) =>
-          !checkIsSystemAdmin(c) &&
+          !isSuperBossUser(c) &&
           classifyTipo(c) === "Docente" &&
           checkIsQuadro(c) === true &&
           !isColaboradorInactive(c.estado),
@@ -955,7 +954,7 @@ export default function GestaoPessoalView({
     () =>
       colaboradores.filter(
         (c) =>
-          !checkIsSystemAdmin(c) &&
+          !isSuperBossUser(c) &&
           classifyTipo(c) === "Docente" &&
           checkIsQuadro(c) === false &&
           !isColaboradorInactive(c.estado),
@@ -966,7 +965,7 @@ export default function GestaoPessoalView({
     () =>
       colaboradores.filter(
         (c) =>
-          !checkIsSystemAdmin(c) &&
+          !isSuperBossUser(c) &&
           classifyTipo(c) === "CTA" &&
           checkIsQuadro(c) === true &&
           !isColaboradorInactive(c.estado),
@@ -977,7 +976,7 @@ export default function GestaoPessoalView({
     () =>
       colaboradores.filter(
         (c) =>
-          !checkIsSystemAdmin(c) &&
+          !isSuperBossUser(c) &&
           classifyTipo(c) === "CTA" &&
           checkIsQuadro(c) === false &&
           !isColaboradorInactive(c.estado),
@@ -1046,7 +1045,7 @@ export default function GestaoPessoalView({
     const emailCounts: Record<string, number> = {};
 
     colaboradores.forEach((c) => {
-      const isSystemAdmin = checkIsSystemAdmin(c);
+      const isSystemAdmin = isSuperBossUser(c);
 
       if (!isSystemAdmin) {
         if (c.nuit && c.nuit.trim() !== "" && c.nuit !== "---")
@@ -1061,7 +1060,7 @@ export default function GestaoPessoalView({
     const duplicatedIds = new Set<string>();
 
     colaboradores.forEach((c) => {
-      const isSystemAdmin = checkIsSystemAdmin(c);
+      const isSystemAdmin = isSuperBossUser(c);
 
       if (!isSystemAdmin) {
         let isDuplicated = false;

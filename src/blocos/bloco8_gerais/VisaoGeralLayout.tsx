@@ -17,10 +17,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { firestoreService } from "../../lib/firestoreService";
 import { EFETIVO_GERAL_DATA } from "../../constants/colaboradoresList";
 import { MatrixActivity } from "../../types";
-import { getAuthorizedActivities, getRoles } from "../../lib/auth";
+import { getAuthorizedActivities, getRoles, isSuperBossUser } from "../../lib/auth";
 import { isValidActivity } from "../bloco5_sistema/plano/PlanoHelpers";
 import {
-  checkIsSystemAdmin,
   checkIsQuadro,
   hasChefiaPosition,
 } from "../../lib/utils";
@@ -230,7 +229,7 @@ export default function VisaoGeralLayout({
 
   const statsMetrics = useMemo(() => {
     const listDocenteQuadro = filteredDataset.filter((c) => {
-      const isAdmin = checkIsSystemAdmin(c);
+      const isAdmin = isSuperBossUser(c);
       if (isAdmin) return false;
       return (
         (c.tipo || "").toLowerCase() !== "cta" &&
@@ -240,7 +239,7 @@ export default function VisaoGeralLayout({
     });
 
     const listDocenteNaoQuadro = filteredDataset.filter((c) => {
-      const isAdmin = checkIsSystemAdmin(c);
+      const isAdmin = isSuperBossUser(c);
       if (isAdmin) return false;
       return (
         (c.tipo || "").toLowerCase() !== "cta" &&
@@ -250,7 +249,7 @@ export default function VisaoGeralLayout({
     });
 
     const listCTAQuadro = filteredDataset.filter((c) => {
-      const isAdmin = checkIsSystemAdmin(c);
+      const isAdmin = isSuperBossUser(c);
       if (isAdmin) return false;
       return (
         (c.tipo || "").toLowerCase() === "cta" &&
@@ -260,7 +259,7 @@ export default function VisaoGeralLayout({
     });
 
     const listCTANaoQuadro = filteredDataset.filter((c) => {
-      const isAdmin = checkIsSystemAdmin(c);
+      const isAdmin = isSuperBossUser(c);
       if (isAdmin) return false;
       return (
         (c.tipo || "").toLowerCase() === "cta" &&

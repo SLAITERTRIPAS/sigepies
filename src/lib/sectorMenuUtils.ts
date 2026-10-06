@@ -21,7 +21,8 @@ import {
   BookOpen,
   FlaskConical,
   Wrench,
-  ShieldCheck
+  ShieldCheck,
+  ShieldAlert
 } from "lucide-react";
 
 export interface SectorSidebarSubItem {
@@ -129,6 +130,12 @@ export function getSectorSidebarItems(
           title: "Relatórios",
           icon: BarChart3,
           description: "Relatórios periódicos de atividades e dados"
+        },
+        {
+          id: "relatorio_acessos",
+          title: "Auditoria de Acessos",
+          icon: ShieldAlert,
+          description: "Padrões de tentativas de intrusão por departamento (D3)"
         },
         {
           id: "balanco",

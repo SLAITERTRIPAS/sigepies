@@ -781,3 +781,24 @@ body.app-maximized-fullscreen {
     display: none !important;
   }
 }
+
+/* Animação contínua de apresentação do rodapé: Da esquerda para a direita */
+@keyframes footer-marquee-ltr {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.animate-footer-marquee {
+  display: flex;
+  width: max-content;
+  animation: footer-marquee-ltr 36s linear infinite;
+  will-change: transform;
+}
+
+.animate-footer-marquee:hover {
+  animation-play-state: paused;
+}

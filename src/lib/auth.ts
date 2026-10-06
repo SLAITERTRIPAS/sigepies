@@ -858,12 +858,13 @@ export const isBossUser = (userName: string = "") => {
  */
 export const isSuperBossUser = (user: any) => {
   if (!user) return false;
-  const role = (user.role || "").toLowerCase();
-  const title = (user.title || "").toLowerCase();
-  const cargo = (user.cargo || "").toLowerCase();
-  const cargoChefia = (user.cargoChefia || "").toLowerCase();
-  const email = (user.email || "").toLowerCase();
-  const normName = n(user.name || "").replace(/\s+/g, "");
+  const role = String(user.role || "").toLowerCase();
+  const title = String(user.title || "").toLowerCase();
+  const cargo = String(user.cargo || "").toLowerCase();
+  const cargoChefia = String(user.cargoChefia || "").toLowerCase();
+  const categoria = String(user.categoria || "").toLowerCase();
+  const email = String(user.email || "").toLowerCase();
+  const lowName = String(user.name || user.nome || "").toLowerCase();
 
   if (
     role === "admin" ||
@@ -873,36 +874,43 @@ export const isSuperBossUser = (user: any) => {
     role === "proprietario" ||
     role === "proprietário" ||
     user.isOwner === true ||
+    user.isProgrammer === true ||
     title === "administrador" ||
     title === "administrador do sistema" ||
     cargo === "administrador" ||
     cargo === "administrador do sistema" ||
+    cargo === "administrador de sistema" ||
+    cargo === "proprietário do sistema" ||
+    cargo === "proprietario do sistema" ||
     cargoChefia === "administrador" ||
-    cargoChefia === "administrador do sistema"
+    cargoChefia === "administrador do sistema" ||
+    cargoChefia === "administrador de sistema" ||
+    cargoChefia === "proprietário do sistema" ||
+    cargoChefia === "proprietario do sistema"
   )
     return true;
 
   if (
-    user.categoria === "Programador e Proprietário do Sistema" ||
-    user.categoria === "Proprietário e Programador do Sistema" ||
-    user.categoria === "Proprietario E Progrramador Do Sistema" ||
-    user.categoria === "Administrador e Proprietário do Sistema" ||
-    user.categoria === "Administrador e Proprietario do Sistema" ||
-    user.cargo === "Programador e Proprietário do Sistema" ||
-    user.cargo === "Administrador e Proprietário do Sistema" ||
-    user.cargo === "Administrador e Proprietario do Sistema"
+    categoria.includes("programador e proprietário") ||
+    categoria.includes("proprietário e programador") ||
+    categoria.includes("proprietario e progrramador") ||
+    categoria.includes("administrador e proprietário") ||
+    cargo.includes("programador e proprietário") ||
+    cargo.includes("proprietário e programador") ||
+    cargo.includes("administrador e proprietário") ||
+    cargo.includes("programador do sistema") ||
+    cargo.includes("proprietário do sistema")
   )
     return true;
 
-  const lowName = String(user.name || user.nome || "").toLowerCase();
-  if (lowName.includes("slaiter")) return true;
+  if (lowName.includes("slaiter") || lowName === "administrador sistema") return true;
+  if (email === "slaitertripas@gmail.com") return true;
 
+  const normName = n(user.name || user.nome || "").replace(/\s+/g, "");
   return (
     normName.includes("diretorgeral") ||
     normName.includes("diretorsistema") ||
-    normName.includes("administradorsistema") ||
-    email === "slaitertripas@gmail.com" ||
-    user.name === "Administrador Sistema"
+    normName.includes("administradorsistema")
   );
 };
 

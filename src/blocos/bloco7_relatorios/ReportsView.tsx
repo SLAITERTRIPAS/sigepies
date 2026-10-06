@@ -24,6 +24,7 @@ import {
   Upload,
   Trash2,
   Image as ImageIcon,
+  ShieldAlert,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import StandardReportModel, {
@@ -31,6 +32,7 @@ import StandardReportModel, {
   SectorStaffing,
   ReportSection as StandardReportSection,
 } from "../bloco7_relatorios/StandardReportModel";
+import RelatorioAcessoIndevidoView from "./RelatorioAcessoIndevidoView";
 import { getRoles, isSuperBossUser } from "../../lib/auth";
 import {
   FUNCIONARIOS,
@@ -130,12 +132,21 @@ export default function ReportsView({
   onBack,
   onSetHeaderActions,
   initialDirection,
+  initialMode,
   user,
 }: {
   onShowAlert: (msg: string) => void;
   onBack: () => void;
   onSetHeaderActions?: (actions: React.ReactNode) => void;
   initialDirection?: string;
+  initialMode?:
+    | "type-selection"
+    | "action-selection"
+    | "consult"
+    | "edit-report"
+    | "view-report"
+    | "workflow"
+    | "access-alerts";
   user?: any;
 }) {
   const directions = [
@@ -175,7 +186,8 @@ export default function ReportsView({
     | "edit-report"
     | "view-report"
     | "workflow"
-  >("type-selection");
+    | "access-alerts"
+  >(initialMode || "type-selection");
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [selectedDirection, setSelectedDirection] = useState<string | null>(
     initialDirection || null
@@ -312,26 +324,26 @@ export default function ReportsView({
   };
 
   const renderTypeSelection = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl mx-auto mt-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-7xl mx-auto mt-8">
       <button
         type="button"
         onClick={() => {
           setReportType("Anual");
           setMode("action-selection");
         }}
-        className="group bg-gradient-to-br from-blue-700 to-indigo-800 p-8 rounded-3xl shadow-xl hover:scale-[1.02] transition-all flex flex-col items-center text-center gap-6 text-white border-4 border-white/20 cursor-pointer"
+        className="group bg-gradient-to-br from-blue-700 to-indigo-800 p-7 rounded-3xl shadow-xl hover:scale-[1.02] transition-all flex flex-col items-center text-center gap-5 text-white border-4 border-white/20 cursor-pointer"
       >
-        <div className="p-5 bg-white/20 rounded-2xl group-hover:bg-white/30 transition-colors">
-          <GitMerge size={42} />
+        <div className="p-4 bg-white/20 rounded-2xl group-hover:bg-white/30 transition-colors">
+          <GitMerge size={38} />
         </div>
         <div>
-          <h3 className="text-2xl font-bold mb-2 tracking-tight">
+          <h3 className="text-xl font-bold mb-2 tracking-tight">
             Relatórios Anuais Escalonados
           </h3>
           <p className="text-blue-100 text-xs leading-relaxed">
             Fluxo progressivo: <strong>Setor → Repartição → Departamento → Direção → Institucional</strong>.
           </p>
-          <span className="inline-block mt-4 px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-wider">
+          <span className="inline-block mt-3 px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-wider">
             Recomendado
           </span>
         </div>
@@ -343,13 +355,13 @@ export default function ReportsView({
           setReportType("Semestral");
           setMode("action-selection");
         }}
-        className="group bg-white border-2 border-gray-200 p-8 rounded-3xl shadow-sm hover:border-purple-500 hover:shadow-xl transition-all flex flex-col items-center text-center gap-6 cursor-pointer"
+        className="group bg-white border-2 border-gray-200 p-7 rounded-3xl shadow-sm hover:border-purple-500 hover:shadow-xl transition-all flex flex-col items-center text-center gap-5 cursor-pointer"
       >
-        <div className="p-5 bg-purple-50 text-purple-600 rounded-2xl group-hover:bg-purple-600 group-hover:text-white transition-colors">
-          <Calendar size={42} />
+        <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl group-hover:bg-purple-600 group-hover:text-white transition-colors">
+          <Calendar size={38} />
         </div>
         <div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2 tracking-tight">
+          <h3 className="text-xl font-bold text-gray-900 mb-2 tracking-tight">
             Relatórios Semestrais
           </h3>
           <p className="text-gray-500 text-xs leading-relaxed">
@@ -364,18 +376,41 @@ export default function ReportsView({
           setActiveReport(null);
           setMode("edit-report");
         }}
-        className="group bg-white border-2 border-gray-200 p-8 rounded-3xl shadow-sm hover:border-emerald-500 hover:shadow-xl transition-all flex flex-col items-center text-center gap-6 cursor-pointer"
+        className="group bg-white border-2 border-gray-200 p-7 rounded-3xl shadow-sm hover:border-emerald-500 hover:shadow-xl transition-all flex flex-col items-center text-center gap-5 cursor-pointer"
       >
-        <div className="p-5 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-          <Plus size={42} />
+        <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+          <Plus size={38} />
         </div>
         <div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2 tracking-tight">
+          <h3 className="text-xl font-bold text-gray-900 mb-2 tracking-tight">
             Novo Relatório Técnico
           </h3>
           <p className="text-gray-500 text-xs leading-relaxed">
             Iniciar rascunho direto de setor, repartição ou departamento.
           </p>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setMode("access-alerts");
+        }}
+        className="group bg-gradient-to-br from-red-800 to-rose-950 p-7 rounded-3xl shadow-xl hover:scale-[1.02] transition-all flex flex-col items-center text-center gap-5 text-white border-4 border-white/20 cursor-pointer"
+      >
+        <div className="p-4 bg-white/20 rounded-2xl group-hover:bg-white/30 transition-colors">
+          <ShieldAlert size={38} />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold mb-2 tracking-tight">
+            Tentativas de Acesso & Intrusão
+          </h3>
+          <p className="text-rose-100 text-xs leading-relaxed">
+            Consolidação dos registos <strong>accessAlerts</strong> com análise de padrões de intrusão por departamento via <strong>D3.js</strong>.
+          </p>
+          <span className="inline-block mt-3 px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-wider">
+            Auditoria / D3
+          </span>
         </div>
       </button>
     </div>
@@ -747,11 +782,70 @@ export default function ReportsView({
 
   return (
     <div className="w-full h-full pb-20">
+      {/* Sub-menu Superior de Navegação dos Relatórios */}
+      <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-3 flex flex-wrap items-center justify-between gap-3 shadow-xs sticky top-0 z-20">
+        <div className="flex items-center gap-2 flex-wrap">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-all cursor-pointer mr-1"
+              title="Voltar ao Sistema"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+            <button
+              onClick={() => {
+                if (mode === "access-alerts") setMode("type-selection");
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                mode !== "access-alerts"
+                  ? "bg-[#050b38] text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <FileText size={14} />
+              <span>Relatórios Técnicos Periódicos</span>
+            </button>
+
+            <button
+              onClick={() => setMode("access-alerts")}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                mode === "access-alerts"
+                  ? "bg-red-700 text-white shadow-sm"
+                  : "text-slate-600 hover:text-red-700"
+              }`}
+            >
+              <ShieldAlert size={14} />
+              <span>Auditoria de Intrusão & Acesso (D3)</span>
+            </button>
+          </div>
+        </div>
+
+        {mode !== "type-selection" && mode !== "access-alerts" && (
+          <button
+            onClick={() => setMode("type-selection")}
+            className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+          >
+            ← Painel Inicial de Relatórios
+          </button>
+        )}
+      </div>
+
       <AnimatePresence mode="wait">
         {mode === "type-selection" && renderTypeSelection()}
         {mode === "action-selection" && renderActionSelection()}
         {mode === "consult" && renderConsult()}
         {mode === "workflow" && renderWorkflow()}
+        {mode === "access-alerts" && (
+          <RelatorioAcessoIndevidoView
+            onBack={() => setMode("type-selection")}
+            user={user}
+            onShowAlert={onShowAlert}
+          />
+        )}
         {mode === "edit-report" && (
           <ReportEditor
             report={activeReport}

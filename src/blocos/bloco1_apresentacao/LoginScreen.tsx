@@ -24,6 +24,7 @@ import {
   normalize as n,
   generateCollaboratorId,
   safeJSONStringify,
+  safeJSONParse,
 } from "../../lib/utils";
 import { EFETIVO_GERAL_DATA } from "../../constants/colaboradoresList";
 import { printElementById } from "../../lib/printUtils";
@@ -56,11 +57,28 @@ EFETIVO_GERAL_DATA.forEach((c) => {
   if (genId) EFETIVO_MAP.set(n(genId), c);
 });
 
+/**
+ * Converte um valor (Timestamp Firestore, String ISO ou Date) para objeto Date de forma segura.
+ */
+const getTimestampDate = (val: any): Date => {
+  if (!val) return new Date(0);
+  if (val instanceof Date) return val;
+  if (typeof val.toDate === "function") return val.toDate();
+  if (val.seconds !== undefined) return new Date(val.seconds * 1000);
+  try {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+  } catch {
+    return new Date(0);
+  }
+};
+
 // Helper for local user caching during quota/network constraints
 const saveUserToCache = (userData: any) => {
   try {
-    const cache: any[] = JSON.parse(
-      localStorage.getItem("sigep_users_cache") || "[]",
+    const cache = safeJSONParse<any[]>(
+      localStorage.getItem("sigep_users_cache"),
+      [],
     );
     const emailNorm = (userData.email || "").toLowerCase().trim();
     const idNorm = String(userData.id || "")
@@ -97,8 +115,9 @@ const findLocalUser = (lowerInput: string, inputPass?: string) => {
 
   // 1. Procurar no cache local
   try {
-    const cache: any[] = JSON.parse(
-      localStorage.getItem("sigep_users_cache") || "[]",
+    const cache = safeJSONParse<any[]>(
+      localStorage.getItem("sigep_users_cache"),
+      [],
     );
     const found = cache.find((u: any) => {
       const eMatch = u.email && n(u.email) === normInput;
@@ -113,8 +132,9 @@ const findLocalUser = (lowerInput: string, inputPass?: string) => {
 
   // 2. Procurar no último utilizador autenticado
   try {
-    const stored = JSON.parse(
-      localStorage.getItem("sigep_logged_in_user") || "{}",
+    const stored = safeJSONParse<any>(
+      localStorage.getItem("sigep_logged_in_user"),
+      null,
     );
     if (stored && (stored.email || stored.nuit || stored.id)) {
       const eMatch = stored.email && n(stored.email) === normInput;
@@ -567,9 +587,10 @@ export default function LoginScreen({
     setLoading(true);
     let localVersion: any = null;
 
-    const lowerInput = identifier.toLowerCase().trim();
-    const upperInput = identifier.toUpperCase().trim();
-    const exactInput = identifier.trim();
+    const sanitizedIdentifier = String(identifier || "").replace(/\s+/g, " ").trim();
+    const lowerInput = sanitizedIdentifier.toLowerCase();
+    const upperInput = sanitizedIdentifier.toUpperCase();
+    const exactInput = sanitizedIdentifier;
     const normInput = n(lowerInput);
 
     try {
@@ -709,19 +730,30 @@ export default function LoginScreen({
         allMatchedDocs = allMatchedDocs.filter(
           (v, i, a) => a.findIndex((v2) => v2.id === v.id) === i,
         );
+
+        console.log(`[Login Diagnostic] Documentos encontrados em 'users': ${allMatchedDocs.length}`);
+        allMatchedDocs.forEach(d => {
+          const data = d.data();
+          console.log(`[Login Diagnostic] Doc ID: ${d.id}, mustChangePassword: ${data.mustChangePassword}, senhaPadraoBloqueada: ${data.senhaPadraoBloqueada}, updatedAt: ${data.updatedAt}`);
+        });
+
         allMatchedDocs.sort((a, b) => {
           const aData = a.data();
           const bData = b.data();
-          if (
-            aData.mustChangePassword === false &&
-            bData.mustChangePassword !== false
-          )
-            return -1;
-          if (
-            aData.mustChangePassword !== false &&
-            bData.mustChangePassword === false
-          )
-            return 1;
+          
+          // Melhorar a ordenação por tempo de atualização real
+          const aTime = getTimestampDate(aData.updatedAt || aData.createdAt || 0).getTime();
+          const bTime = getTimestampDate(bData.updatedAt || bData.createdAt || 0).getTime();
+          
+          if (aTime !== bTime) return bTime - aTime; // Priorizar o registo mais recentemente atualizado
+
+          // Se empatar no tempo, priorizar quem já alterou a senha
+          const aChanged = aData.mustChangePassword === false || aData.senhaPadraoBloqueada === true;
+          const bChanged = bData.mustChangePassword === false || bData.senhaPadraoBloqueada === true;
+          
+          if (aChanged && !bChanged) return -1;
+          if (!aChanged && bChanged) return 1;
+          
           return 0;
         });
 
@@ -762,8 +794,9 @@ export default function LoginScreen({
         }
         if (user) {
           try {
-            const cache: any[] = JSON.parse(
-              localStorage.getItem("sigep_users_cache") || "[]"
+            const cache = safeJSONParse<any[]>(
+              localStorage.getItem("sigep_users_cache"),
+              [],
             );
             const localVersion = cache.find((u: any) => {
               const eMatch = u.email && u.email.toLowerCase().trim() === (user.email || "").toLowerCase().trim();
@@ -774,12 +807,13 @@ export default function LoginScreen({
             if (localVersion) {
               if (localVersion.mustChangePassword === false) {
                 user.mustChangePassword = false;
+                user.senhaPadraoBloqueada = true;
               }
               if (
                 localVersion.password &&
                 (!user.password ||
                   user.password === "1234" ||
-                  ["admin", "123456", "123"].includes(user.password))
+                  ["admin", "123456", "123", "231383ft"].includes(user.password))
               ) {
                 user.password = localVersion.password;
               }
@@ -850,17 +884,23 @@ export default function LoginScreen({
         return;
       }
 
-      const isDefaultInput = password === "1234" || password === "123" || password === "123456" || password === "admin";
-        const dbPassword = user.password;
+        const dbPassword = String(user.password || "");
         const hasChangedPassword = user.mustChangePassword === false || user.senhaPadraoBloqueada === true || user.isFirstAccess === false;
+        
+        // Bloqueio absoluto: se o utilizador já alterou a senha antes, NUNCA aceita a padrão
+        const isDefaultInput = password === "1234" || password === "123" || password === "123456" || password === "admin" || password === "231383ft";
+        const isDbDefault = !dbPassword || dbPassword === "1234" || ["admin", "123456", "123"].includes(dbPassword);
 
-        // 1. Validação estrita de senha com bloqueio imediato da senha padrão após alteração
         let isCorrect = false;
         let forceChange = false;
 
         if (hasChangedPassword) {
-          // Utilizador já alterou a senha - bloqueia estritamente qualquer senha padrão e só aceita a senha atual da base de dados
-          if (password === dbPassword) {
+          // Utilizador já alterou a senha - bloqueia estritamente qualquer senha padrão 
+          // e só aceita a senha atual da base de dados (que não deve ser a padrão)
+          if (password === dbPassword && !isDefaultInput) {
+            isCorrect = true;
+          } else if (password === dbPassword && isDefaultInput && !isDbDefault) {
+            // Caso raro onde o utilizador escolheu a padrão como nova (não recomendado mas possível se o sistema deixou)
             isCorrect = true;
           } else if (isDefaultInput) {
             setError(
@@ -871,11 +911,6 @@ export default function LoginScreen({
           }
         } else {
           // Primeiro acesso ou senha resetada pelo administrador
-          const isDbDefault =
-            !dbPassword ||
-            dbPassword === "1234" ||
-            ["admin", "123456", "123"].includes(dbPassword);
-
           if (password === dbPassword) {
             isCorrect = true;
             if (isDbDefault) forceChange = true;
@@ -1111,6 +1146,15 @@ export default function LoginScreen({
 
         // Garantir que utilizadores autenticados nunca mais precisem de alterar a senha obrigatoriamente
         user.mustChangePassword = false;
+        
+        // Persistir a alteração de status na base de dados para evitar re-solicitação
+        if (matchedDoc && !isQuotaError) {
+          updateDoc(doc(db, "users", matchedDoc.id), { 
+            mustChangePassword: false,
+            senhaPadraoBloqueada: true,
+            updatedAt: serverTimestamp() 
+          }).catch(console.warn);
+        }
 
         // Gerar token de sessão único para este dispositivo
         const sessionToken = "sigep_sess_" + Date.now() + "_" + Math.random().toString(36).substring(2, 12);
@@ -1225,7 +1269,7 @@ export default function LoginScreen({
           name: matchedUser.name,
           email: (matchedUser.email || "").toLowerCase().trim(),
           nuit: matchedUser.nuit || "",
-          password: newPassword, // Save the new password
+          password: newPassword,
           passwordHash: pwdHash,
           passwordExpired: false,
           role: matchedUser.role,
@@ -1236,111 +1280,101 @@ export default function LoginScreen({
           reparticao: (matchedUser as any).reparticao || "",
           cargo: matchedUser.cargo || "",
           numeroEstudante: matchedUser.numeroEstudante || "",
-          createdAt: new Date().toISOString(),
+          createdAt: matchedUser.createdAt || new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
 
-        let docId = "local_" + Date.now();
-        try {
-          const usersRef = collection(db, "users");
-          const isNuitNumeric = /^\d+$/.test(String(newUser.nuit || ""));
-          const nuitNumericVal = isNuitNumeric ? Number(newUser.nuit) : null;
+        // Identificadores para busca exaustiva
+        const emailStr = String(newUser.email || "").toLowerCase().trim();
+        const nuitStr = String(newUser.nuit || "").trim();
+        const nuitNum = /^\d+$/.test(nuitStr) ? Number(nuitStr) : null;
 
-          const emailStr = String(newUser.email || "")
-            .toLowerCase()
-            .trim();
-          const qEmail = emailStr
-            ? query(usersRef, where("email", "==", emailStr))
-            : null;
+        // 1. Encontrar TODOS os documentos em 'users' e 'colaboradores' que correspondem a este utilizador
+        const usersRef = collection(db, "users");
+        const colRef = collection(db, "colaboradores");
 
-          const nuitStr = String(newUser.nuit || "").trim();
-          const qNuit = nuitStr
-            ? query(usersRef, where("nuit", "==", nuitStr))
-            : null;
-          const qNuitNum =
-            nuitNumericVal !== null
-              ? query(usersRef, where("nuit", "==", nuitNumericVal))
-              : null;
+        const queries = [];
+        if (emailStr) {
+          queries.push(getDocs(query(usersRef, where("email", "==", emailStr))));
+          queries.push(getDocs(query(colRef, where("email", "==", emailStr))));
+        }
+        if (nuitStr) {
+          queries.push(getDocs(query(usersRef, where("nuit", "==", nuitStr))));
+          queries.push(getDocs(query(colRef, where("nuit", "==", nuitStr))));
+        }
+        if (nuitNum !== null) {
+          queries.push(getDocs(query(usersRef, where("nuit", "==", nuitNum))));
+          queries.push(getDocs(query(colRef, where("nuit", "==", nuitNum))));
+        }
 
-          const [snapEmail, snapNuit, snapNuitNum] = await Promise.all([
-            qEmail ? getDocs(qEmail) : Promise.resolve({ docs: [] }),
-            qNuit ? getDocs(qNuit) : Promise.resolve({ docs: [] }),
-            qNuitNum ? getDocs(qNuitNum) : Promise.resolve({ docs: [] }),
-          ]);
+        const results = await Promise.all(queries);
+        const allDocsToUpdate: { ref: any, data: any, collection: string }[] = [];
 
-          let allDocs = [
-            ...snapEmail.docs,
-            ...snapNuit.docs,
-            ...snapNuitNum.docs,
-          ];
-
-          if (allDocs.length === 0 && matchedUser.id) {
-            allDocs = [{ id: matchedUser.id }] as any;
-          }
-
-          const uniqueDocs = allDocs.filter(
-            (v, i, a) => a.findIndex((v2: any) => v2.id === v.id) === i,
-          );
-
-          if (uniqueDocs.length > 0) {
-            docId = uniqueDocs[0].id;
-            // Atualizar (ou criar) todos os documentos em paralelo
-            const { setDoc } = await import("firebase/firestore");
-            await Promise.all(
-              uniqueDocs.map((d: any) =>
-                setDoc(
-                  doc(db, "users", d.id),
-                  {
-                    ...newUser,
-                    password: newPassword,
-                    mustChangePassword: false,
-                    isFirstAccess: false,
-                    senhaPadraoBloqueada: true,
-                    id: d.id,
-                    updatedAt: serverTimestamp(),
-                  },
-                  { merge: true },
-                ).catch((err: any) =>
-                  console.warn(`Erro ao atualizar doc ${d.id}:`, err),
-                ),
-              ),
-            );
-          } else {
-            // Usa id gerado com Iniciais e Nuit se não houver um doc
-            docId =
-              newUser.id || generateCollaboratorId(newUser.name, newUser.nuit);
-            const { setDoc } = await import("firebase/firestore");
-            await setDoc(doc(db, "users", docId), {
-              ...newUser,
-              id: docId,
-              isFirstAccess: false,
-              senhaPadraoBloqueada: true,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
+        results.forEach((snap, idx) => {
+          const colName = (idx % 2 === 0) ? (emailStr ? "users" : "colaboradores") : (emailStr ? "colaboradores" : "users");
+          // Correction: simple way to track collection
+          const actualColName = queries.length > 0 ? (idx % 2 === 0 ? "users" : "colaboradores") : "users";
+          
+          snap.forEach(d => {
+            allDocsToUpdate.push({
+              ref: d.ref,
+              data: d.data(),
+              collection: d.ref.parent.id
             });
-          }
+          });
+        });
 
-          // Atualizar também na coleção 'colaboradores' para manter consistência
-          if (matchedUser && matchedUser.id) {
-            try {
-              const { updateDoc } = await import("firebase/firestore");
-              await updateDoc(doc(db, "colaboradores", matchedUser.id), {
-                password: newPassword,
-                mustChangePassword: false,
-                isFirstAccess: false,
-                senhaPadraoBloqueada: true,
-              }).catch((e) => console.warn("Erro atualizar colaborador", e));
-            } catch (colErr) {
-              console.warn("Aviso na atualização de colaboradores:", colErr);
-            }
-          }
+        // Adicionar o documento atual se não foi encontrado
+        if (allDocsToUpdate.length === 0 && matchedUser.id) {
+          allDocsToUpdate.push({
+            ref: doc(db, "users", matchedUser.id),
+            data: matchedUser,
+            collection: "users"
+          });
+        }
 
-          const sessionToken = "sigep_sess_" + Date.now() + "_" + Math.random().toString(36).substring(2, 12);
-          localStorage.setItem("sigep_session_token", sessionToken);
+        // Remover duplicados por path
+        const uniqueDocs = allDocsToUpdate.filter((v, i, a) => a.findIndex(t => t.ref.path === v.ref.path) === i);
 
-          if (auth.currentUser && docId) {
-            // Apenas atualizamos o documento original com o UID, não criamos um espelhado
-            await updateDoc(doc(db, "users", docId), {
+        console.log(`[Password Sync] Atualizando ${uniqueDocs.length} documentos em todas as coleções.`);
+
+        // 2. Atualizar TODOS os documentos encontrados com a nova senha e sinalizadores de bloqueio
+        await Promise.all(uniqueDocs.map(item => {
+          const isUserCol = item.collection === "users";
+          const updateData = {
+            password: newPassword,
+            mustChangePassword: false,
+            isFirstAccess: false,
+            senhaPadraoBloqueada: true,
+            updatedAt: serverTimestamp(),
+          };
+
+          // Se for na coleção users, garantir que temos o perfil completo
+          const finalData = isUserCol ? { ...newUser, ...updateData } : updateData;
+          
+          return setDoc(item.ref, finalData, { merge: true }).catch(err => 
+            console.warn(`Erro ao atualizar ${item.ref.path}:`, err)
+          );
+        }));
+
+        // 3. Atualizar Cache Local e Sessão
+        const finalUser = {
+          ...newUser,
+          password: newPassword,
+          mustChangePassword: false,
+          isFirstAccess: false,
+          senhaPadraoBloqueada: true,
+        };
+        saveUserToCache(finalUser);
+
+        const sessionToken = "sigep_sess_" + Date.now() + "_" + Math.random().toString(36).substring(2, 12);
+        localStorage.setItem("sigep_session_token", sessionToken);
+
+        if (auth.currentUser) {
+          // Atualizar o primeiro documento encontrado com o vínculo de Auth UID
+          const primaryDoc = uniqueDocs.find(d => d.collection === "users") || uniqueDocs[0];
+          if (primaryDoc) {
+            await updateDoc(primaryDoc.ref, {
               authUid: auth.currentUser.uid,
               currentSessionToken: sessionToken,
               lastLoginAt: new Date().toISOString(),
@@ -1348,21 +1382,13 @@ export default function LoginScreen({
               isOnline: true,
             });
           }
-        } catch (fsErr) {
-          console.warn(
-            "Aviso ao guardar utilizador no Firestore (Quota/Rede):",
-            fsErr,
-          );
         }
 
-        const localSessToken = localStorage.getItem("sigep_session_token") || ("sigep_sess_" + Date.now() + "_" + Math.random().toString(36).substring(2, 12));
-        const finalUser = { ...newUser, id: docId || "local_" + Date.now(), currentSessionToken: localSessToken };
-        saveUserToCache(finalUser);
-
-        setSuccess("Senha criada com sucesso!");
+        setSuccess("Senha criada e sincronizada com sucesso em todos os registos!");
         setTimeout(() => {
           onLogin({
             ...finalUser,
+            currentSessionToken: sessionToken,
             userArea: {
               unidade: finalUser.unidade,
               direcao: finalUser.direcao,
@@ -1380,7 +1406,7 @@ export default function LoginScreen({
       }
     } catch (err: any) {
       console.error(err);
-      setError("Erro ao criar senha no sistema: " + err.message);
+      setError("Erro ao sincronizar senha: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -1524,7 +1550,7 @@ export default function LoginScreen({
               "1px 1px 0 #000, 2px 2px 0 #000, 3px 3px 0 #000, 4px 4px 4px rgba(0,0,0,0.5)",
           }}
         >
-          Desenvolvido por Franzissei - 2025-2026 | @todos os direitos reservados
+          Desenvolvido por Franzíssi Tripalonga - 2025-2026 | @todos os direitos reservados
         </div>
 
         {/* Top Right Icons */}

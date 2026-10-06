@@ -23,7 +23,7 @@
           } catch(e) {
             str = "";
           }
-          return (
+          var isIgnorable = (
             str.indexOf("internal assertion failed") !== -1 ||
             str.indexOf("unexpected state") !== -1 ||
             str.indexOf("quota limit exceeded") !== -1 ||
@@ -36,6 +36,10 @@
             str.indexOf("@firebase/firestore") !== -1 ||
             str.indexOf("firestore (11.") !== -1
           );
+          if (isIgnorable) {
+            console.warn("Ignored systemic error:", str);
+          }
+          return isIgnorable;
         }
 
         window.addEventListener("error", function(e) {

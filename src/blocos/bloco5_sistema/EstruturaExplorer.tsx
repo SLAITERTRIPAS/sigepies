@@ -141,6 +141,7 @@ export const EstruturaExplorer = ({
 
   // Campos do formulário de instituição
   const [instNome, setInstNome] = useState("");
+  const [instAbreviatura, setInstAbreviatura] = useState("");
   const [instLogo, setInstLogo] = useState("");
   const [instBackgroundImage, setInstBackgroundImage] = useState("");
   const [instPrimaryColor, setInstPrimaryColor] = useState("#050b38");
@@ -1093,12 +1094,15 @@ export const EstruturaExplorer = ({
     try {
       const payload = {
         nome: instNome.trim(),
+        abreviatura: instAbreviatura.trim(),
+        sigla: instAbreviatura.trim(),
         logo: instLogo,
         backgroundImage: instBackgroundImage,
         primaryColor: instPrimaryColor || "#050b38",
         secondaryColor: instSecondaryColor || "#0d1b54",
         accentColor: instAccentColor || "#FFB800",
         tipoInstituicao: selectedTipoInstituicao,
+        categoriaEspecifica: instCategoriaEspecifica,
         documentosNormativosConfigurados: getTipoInstituicaoConfig(selectedTipoInstituicao).documentosNormativosPadrao,
         tipoActividades: instTipoActividades.trim(),
         organograma: instOrganograma.trim(),
@@ -1161,6 +1165,7 @@ export const EstruturaExplorer = ({
       
       // Clear fields
       setInstNome("");
+      setInstAbreviatura("");
       setInstLogo("");
       setInstPrimaryColor("#050b38");
       setInstSecondaryColor("#0d1b54");
@@ -1170,6 +1175,8 @@ export const EstruturaExplorer = ({
       setInstComposicao("");
       setInstProvincia("");
       setInstDistrito("");
+      setSelectedTipoInstituicao("");
+      setInstCategoriaEspecifica("");
       setEditingInstId(null);
       setShowInstForm(false);
       setShowOrganogramaPreview(false);
@@ -1327,6 +1334,7 @@ export const EstruturaExplorer = ({
     if (currentInst) {
       setEditingInstId(currentInst.id);
       setInstNome(currentInst.nome);
+      setInstAbreviatura(currentInst.abreviatura || currentInst.sigla || "");
       setInstLogo(currentInst.logo || "");
       setInstBackgroundImage(currentInst.backgroundImage || (currentInst.id === "isps" ? "https://lh3.googleusercontent.com/d/1Xasp7NB08GDtIE2VEwf-O5iycCdDJKg1" : ""));
       setInstPrimaryColor(currentInst.primaryColor || "#050b38");
@@ -1337,6 +1345,8 @@ export const EstruturaExplorer = ({
       setInstOrganograma(currentInst.organograma || "");
       setInstProvincia(currentInst.provincia || "");
       setInstDistrito(currentInst.distrito || "");
+      setSelectedTipoInstituicao(currentInst.tipoInstituicao || "");
+      setInstCategoriaEspecifica(currentInst.categoriaEspecifica || "");
       setShowInstForm(true);
       if (isGlobalAdmin && activeTab === "instituicoes") {
         setActiveTab("instituicoes");
@@ -1345,6 +1355,7 @@ export const EstruturaExplorer = ({
   };
 
   const [selectedTipoInstituicao, setSelectedTipoInstituicao] = useState<string>("");
+  const [instCategoriaEspecifica, setInstCategoriaEspecifica] = useState<string>("");
 
   const renderInstitutionForm = () => {
     if (!showInstForm) return null;
@@ -1383,6 +1394,26 @@ export const EstruturaExplorer = ({
             </select>
           </div>
 
+          {/* Categoria Específica de Instituição */}
+          <div>
+            <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-wider">
+              Categoria da Instituição *
+            </label>
+            <select
+              required
+              value={instCategoriaEspecifica}
+              onChange={(e) => setInstCategoriaEspecifica(e.target.value)}
+              className="w-full p-3 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-800"
+            >
+              <option value="">-- Selecione a categoria da instituição --</option>
+              <option value="Universidade">Universidade</option>
+              <option value="Instituto Politécnico">Instituto Politécnico</option>
+              <option value="Escola Superior">Escola Superior</option>
+              <option value="Estabelecimento de Ensino">Estabelecimento de Ensino</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Nome */}
             <div>
@@ -1398,8 +1429,23 @@ export const EstruturaExplorer = ({
                 className="w-full p-3 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-800"
               />
             </div>
-            {/* ... restante do formulário ... */}
+            {/* Abreviatura / Sigla */}
+            <div>
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-wider">
+                Abreviatura / Sigla *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: ISPS"
+                value={instAbreviatura}
+                onChange={(e) => setInstAbreviatura(e.target.value)}
+                className="w-full p-3 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-800"
+              />
+            </div>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             {/* Tipo de Atividades */}
             <div>
               <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-wider">
@@ -1862,97 +1908,26 @@ export const EstruturaExplorer = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. Barra de Navegação Superior (Tabs) se for Admin Global */}
-      {isGlobalAdmin && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white p-2.5 rounded-2xl shadow-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("instituicoes");
-                setSelectedUnit(null);
-              }}
-              className={`px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
-                activeTab === "instituicoes"
-                  ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-400/30"
-                  : "text-slate-600 hover:text-blue-700 hover:bg-slate-100/70"
-              }`}
-            >
-              <Building size={16} />
-              <span>Gestão de Instituições</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("estrutura");
-                setSelectedUnit(null);
-              }}
-              className={`px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
-                activeTab === "estrutura"
-                  ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-400/30"
-                  : "text-slate-600 hover:text-blue-700 hover:bg-slate-100/70"
-              }`}
-            >
-              <Network size={16} />
-              <span>Estrutura Geral da Instituição</span>
-              <span className="ml-1 text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-white/20 text-white truncate max-w-[180px]">
-                {instituicoes.find((i) => i.id === selectedInstId)?.nome || "ISPS"}
-              </span>
-              <span 
-                className="ml-0.5 p-1 hover:bg-white/30 rounded transition" 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  triggerEditCurrentInst(); 
-                }}
-                title="Editar dados da instituição"
-              >
-                <Edit size={12} />
-              </span>
-            </button>
+      {/* Barra de Retorno/Breadcrumb para estrutura aninhada se for Admin Global na visualização de estrutura */}
+      {isGlobalAdmin && activeTab === "estrutura" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white p-4 rounded-2xl shadow-sm">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("instituicoes");
+              setSelectedUnit(null);
+            }}
+            className="px-4 py-2 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer shadow-xs border border-slate-200"
+          >
+            <ArrowLeft size={16} />
+            <span>Voltar para Lista de Instituições</span>
+          </button>
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+            <span className="text-slate-400 text-[10px] uppercase tracking-wider">A editar a estrutura interna de:</span>
+            <span className="text-blue-900 font-extrabold text-xs bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200">
+              {instituicoes.find((i) => i.id === selectedInstId)?.nome || "ISPS"}
+            </span>
           </div>
-
-          {/* Seletor rápido para alternar e explorar qualquer instituição */}
-          {activeTab === "estrutura" && instituicoes.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2.5 text-xs font-bold text-slate-700 ml-auto">
-              <span className="text-slate-400 text-[10px] uppercase tracking-wider font-extrabold hidden sm:inline">Explorar Instituição:</span>
-              <select
-                value={selectedInstId}
-                onChange={(e) => {
-                  setSelectedInstId(e.target.value);
-                  setSelectedUnit(null);
-                }}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-black text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
-              >
-                {instituicoes.map((inst) => (
-                  <option key={inst.id} value={inst.id}>
-                    {inst.nome}
-                  </option>
-                ))}
-              </select>
-
-              {/* Indicador e Ativador da Instituição Ativa no Sistema */}
-              {selectedInstId === getActiveInstituicaoId() ? (
-                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-xl text-[11px] font-black">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Ativa no Menu Principal
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveInstituicaoId(selectedInstId);
-                    notifyEstruturaUpdated();
-                  }}
-                  className="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-blue-600 px-3 py-1 rounded-xl text-[11px] font-bold transition shadow-xs cursor-pointer"
-                  title="Definir esta instituição como a ativa para visualização de menus e operações no sistema"
-                >
-                  <Check size={13} />
-                  <span>Ativar no Menu do Sistema</span>
-                </button>
-              )}
-            </div>
-          )}
         </div>
       )}
 
@@ -1970,12 +1945,15 @@ export const EstruturaExplorer = ({
                 onClick={() => {
                   setEditingInstId(null);
                   setInstNome("");
+                  setInstAbreviatura("");
                   setInstLogo("");
                   setInstTipoActividades("");
                   setInstOrganograma("");
                   setInstComposicao("");
                   setInstProvincia("");
                   setInstDistrito("");
+                  setSelectedTipoInstituicao("");
+                  setInstCategoriaEspecifica("");
                   setShowInstForm(true);
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-sm ml-auto cursor-pointer"
@@ -2050,8 +2028,14 @@ export const EstruturaExplorer = ({
                         )}
                         <div>
                           <h3 className="font-extrabold text-blue-900 text-base leading-tight group-hover:text-blue-700 transition-colors">{inst.nome}</h3>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">
-                            {inst.tipoActividades || "Sem tipo de atividade"}
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5 flex flex-wrap items-center gap-1">
+                            {inst.categoriaEspecifica && (
+                              <>
+                                <span className="text-blue-700 font-extrabold">{inst.categoriaEspecifica}</span>
+                                <span aria-hidden="true" className="text-slate-300 font-light">•</span>
+                              </>
+                            )}
+                            <span>{inst.tipoActividades || "Sem tipo de atividade"}</span>
                           </p>
                         </div>
                       </div>
@@ -2180,6 +2164,7 @@ export const EstruturaExplorer = ({
                         onClick={() => {
                           setEditingInstId(inst.id);
                           setInstNome(inst.nome);
+                          setInstAbreviatura(inst.abreviatura || inst.sigla || "");
                           setInstLogo(inst.logo || "");
                           setInstBackgroundImage(inst.backgroundImage || (inst.id === "isps" ? "https://lh3.googleusercontent.com/d/1Xasp7NB08GDtIE2VEwf-O5iycCdDJKg1" : ""));
                           setInstPrimaryColor(inst.primaryColor || "#050b38");
@@ -2190,6 +2175,8 @@ export const EstruturaExplorer = ({
                           setInstOrganograma(inst.organograma || "");
                           setInstProvincia(inst.provincia || "");
                           setInstDistrito(inst.distrito || "");
+                          setSelectedTipoInstituicao(inst.tipoInstituicao || "");
+                          setInstCategoriaEspecifica(inst.categoriaEspecifica || "");
                           setShowInstForm(true);
                         }}
                         className="text-xs text-gray-600 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 p-2 rounded-xl transition cursor-pointer"
@@ -2225,8 +2212,8 @@ export const EstruturaExplorer = ({
                   <Network size={20} />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-blue-900 text-sm">Estrutura Geral da Instituição</h3>
-                  <p className="text-xs text-gray-400">Navegue e explore a estrutura orgânica, órgãos, direções, departamentos e setores.</p>
+                  <h3 className="font-extrabold text-blue-900 text-sm">Estrutura Interna da Instituição</h3>
+                  <p className="text-xs text-gray-400">Gerencie os órgãos, direções, departamentos, repartições e setores que compõem esta instituição.</p>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
@@ -2252,28 +2239,24 @@ export const EstruturaExplorer = ({
                   <FileText size={16} />
                   <span>Extrair Relatório Técnico</span>
                 </button>
-                <div className="relative w-full sm:w-[280px]">
-                  <select
-                    value={selectedInstId}
-                    onChange={(e) => {
-                      const newId = e.target.value;
-                      setSelectedInstId(newId);
-                      setSelectedUnit(null);
-                      setActiveInstituicaoId(newId);
-                      const instObj = instituicoes.find((i) => i.id === newId);
-                      if (instObj) {
-                        localStorage.setItem("sigep_active_instituicao", JSON.stringify(instObj));
-                      }
+                {selectedInstId !== getActiveInstituicaoId() ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveInstituicaoId(selectedInstId);
+                      notifyEstruturaUpdated();
                     }}
-                    className="appearance-none bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-xs focus:border-blue-500 focus:outline-none transition-all w-full pr-10 font-black cursor-pointer"
+                    className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md w-full sm:w-auto shrink-0 cursor-pointer"
                   >
-                    {instituicoes.map((inst) => (
-                      <option key={inst.id} value={inst.id}>
-                        {inst.nome} {inst.sigla ? `(${inst.sigla})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    <Check size={16} />
+                    <span>Definir como Ativa no Sistema</span>
+                  </button>
+                ) : (
+                  <div className="px-4 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 font-black rounded-xl text-xs flex items-center justify-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Instituição Ativa</span>
+                  </div>
+                )}
               </div>
             </div>
           ) : isInstitutionalAdmin ? (

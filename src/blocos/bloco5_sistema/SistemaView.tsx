@@ -42,6 +42,8 @@ import {
   Image as ImageIcon,
   Upload,
   AlertOctagon,
+  Bell,
+  ShieldAlert,
 } from "lucide-react";
 import SigepLogo from "../../components/SigepLogo";
 import { IntelligentDiagnosticsView } from "./IntelligentDiagnosticsView";
@@ -56,8 +58,10 @@ import MonografiaView from "../bloco3_unidades_organicas/MonografiaView";
 import ProjetoCientificoView from "../bloco3_unidades_organicas/ProjetoCientificoView";
 import ResumoTemplateView from "../bloco8_gerais/ResumoTemplateView";
 import ReportsView from "../bloco7_relatorios/ReportsView";
+import RelatorioAcessoIndevidoView from "../bloco7_relatorios/RelatorioAcessoIndevidoView";
 import { ConformidadeNormativaView } from "./ConformidadeNormativaView";
 import { SystemLogsView } from "./SystemLogsView";
+import HolidaysAlertsManagementView from "./HolidaysAlertsManagementView";
 import UniversalRegistrationPicker from "./UniversalRegistrationPicker";
 import RegistarGraduadoForm from "../bloco8_gerais/RegistarGraduadoForm";
 import RegistarMateriaisBensForm from "../bloco8_gerais/RegistarMateriaisBensForm";
@@ -71,7 +75,6 @@ import { optimizeImageForFirestore } from "../../lib/imageUtils";
 import { EFETIVO_GERAL_DATA } from "../../constants/colaboradoresList";
 import MainHeader from "../bloco1_apresentacao/MainHeader";
 import { isSuperBossUser, isInstitutionalAdminUser, isHRBossUser, countInstitutionalAdmins } from "../../lib/auth";
-import { checkIsSystemAdmin } from "../../lib/utils";
 import { ProcessingCircle } from "../../components/ui/ProcessingCircle";
 import { FUNCIONARIOS } from "../../constants/formOptions";
 import GestaoProdutosPrecosView from "../bloco9_produtos_precos/GestaoProdutosPrecosView";
@@ -135,16 +138,7 @@ export default function SistemaView({
     }
   };
 
-  const isGlobalAdmin =
-    isSuperBossUser(user) ||
-    user?.isOwner === true ||
-    user?.isProgrammer === true ||
-    String(user?.email || "").toLowerCase() === "slaitertripas@gmail.com" ||
-    user?.role === "Administrador" ||
-    user?.role === "Administrador do Sistema" ||
-    String(user?.role || "").toLowerCase().includes("admin") ||
-    user?.cargoChefia === "Proprietário do sistema" ||
-    user?.cargoChefia === "Administrador de sistema";
+  const isGlobalAdmin = isSuperBossUser(user);
 
   const isInstitutionalAdmin = isInstitutionalAdminUser(user);
 
@@ -714,7 +708,9 @@ export default function SistemaView({
     { title: "Gestão das Instituições", icon: Building, hidden: !isGlobalAdmin },
     { title: "Conformidade Normativa", icon: ShieldCheck },
     { title: "Monitorização de Sistema", icon: AlertOctagon, hidden: isGlobalAdmin ? false : !canManageUsers },
+    { title: "Feriados e Alertas", icon: Bell, hidden: !isGlobalAdmin },
     { title: "Relatórios", icon: FileText },
+    { title: "Relatório de Acessos Indevidos", icon: ShieldAlert, hidden: !isGlobalAdmin },
     { title: "Template de Resumo", icon: Layout },
     { title: "Parte Teórica", icon: BookOpen, type: "group" },
     { title: "Monografia", icon: FileText, parent: "Parte Teórica" },
@@ -1390,6 +1386,8 @@ export default function SistemaView({
         return (
           <SystemLogsView />
         );
+      case "Feriados e Alertas":
+        return <HolidaysAlertsManagementView user={user} />;
       case "Biografia do Proprietário":
         return (
           <BiografiaView
@@ -1417,6 +1415,28 @@ export default function SistemaView({
           <ProjetoCientificoView
             onBack={() => setActiveItem("Sobre o Sistema")}
           />
+        );
+      case "Relatórios":
+        return (
+          <div className="w-full h-full">
+            <ReportsView
+              user={user}
+              onShowAlert={(msg) => showAlert(msg, "info")}
+              initialDirection="Geral"
+              onBack={() => setActiveItem("Sobre o Sistema")}
+            />
+          </div>
+        );
+      case "Relatório de Acessos Indevidos":
+      case "Tentativas de Acesso":
+        return (
+          <div className="w-full h-full">
+            <RelatorioAcessoIndevidoView
+              user={user}
+              onShowAlert={(msg, type) => showAlert(msg, (type as any) || "info")}
+              onBack={() => setActiveItem("Relatórios")}
+            />
+          </div>
         );
       case "Template de Resumo":
         return (
