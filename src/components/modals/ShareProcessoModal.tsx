@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { useModalAccessibility } from "../../hooks/useModalAccessibility";
 import {
   Share2,
   Power,
@@ -21,6 +22,11 @@ export default function ShareProcessoModal({
   onClose,
   userName,
 }: ShareProcessoModalProps) {
+  const modalRef = useModalAccessibility<HTMLDivElement>({
+    isOpen,
+    onClose,
+  });
+
   const [selectedRole, setSelectedRole] = useState("Docente");
   const [selectedDept, setSelectedDept] = useState("Geral");
   const [selectedProcessoId, setSelectedProcessoId] = useState("");
@@ -44,7 +50,10 @@ export default function ShareProcessoModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm pointer-events-auto p-4 font-sans">
+        <div
+          ref={modalRef}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm pointer-events-auto p-4 font-sans"
+        >
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}

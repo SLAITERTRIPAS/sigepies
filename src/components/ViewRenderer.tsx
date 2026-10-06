@@ -444,6 +444,9 @@ const ViewRendererInner: React.FC<ViewRendererProps> = ({
         <MainMenu user={extendedUser} onNavigate={openSubMenu} onShowAlert={onShowAlert} onBack={goBack} onLogout={onLogout} />
       );
 
+    case "reposicao_teste":
+      return <ReposicaoTesteView onBack={goBack} user={extendedUser || user} />;
+
     case "dashboard":
       if (dashboardTitle === "Reposição de Teste") {
         return <ReposicaoTesteView onBack={goBack} user={extendedUser || user} />;
@@ -966,9 +969,11 @@ const ViewRendererInner: React.FC<ViewRendererProps> = ({
 
 export const ViewRenderer: React.FC<ViewRendererProps> = (props) => {
   return (
-    <Suspense fallback={<ViewLoading />}>
-      <ViewRendererInner {...props} />
-    </Suspense>
+    <ErrorBoundary onReset={props.goBack}>
+      <Suspense fallback={<ViewLoading />}>
+        <ViewRendererInner {...props} />
+      </Suspense>
+    </ErrorBoundary>
   );
 };
 

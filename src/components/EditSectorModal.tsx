@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useModalAccessibility } from "../hooks/useModalAccessibility";
 import { 
   X, 
   Edit3, 
@@ -47,6 +48,11 @@ export default function EditSectorModal({
   onClose,
   onSaveSuccess
 }: EditSectorModalProps) {
+  const modalRef = useModalAccessibility<HTMLDivElement>({
+    isOpen: true,
+    onClose,
+  });
+
   const initialName = sector.title || sector.name || "";
   const [activeTab, setActiveTab] = useState<"menus" | "dados">("menus");
   
@@ -438,7 +444,10 @@ export default function EditSectorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+    <div
+      ref={modalRef}
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/70 backdrop-blur-md p-4 animate-in fade-in duration-200"
+    >
       <div 
         className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}

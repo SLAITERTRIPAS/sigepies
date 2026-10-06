@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useModalAccessibility } from "../../hooks/useModalAccessibility";
 import {
   Download,
   Upload,
@@ -59,6 +60,11 @@ export default function BackupRestoreModal({
   isOpen,
   onClose,
 }: BackupRestoreModalProps) {
+  const modalRef = useModalAccessibility<HTMLDivElement>({
+    isOpen,
+    onClose,
+  });
+
   const [activeTab, setActiveTab] = useState<"orgaos" | "historico">("orgaos");
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -515,7 +521,10 @@ export default function BackupRestoreModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn">
+    <div
+      ref={modalRef}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn"
+    >
       <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border-2 border-[#121c60] overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="bg-[#121c60] px-6 py-4 flex items-center justify-between text-white border-b-4 border-[#FFB800]">

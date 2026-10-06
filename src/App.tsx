@@ -1406,7 +1406,7 @@ export default function App() {
     }
   };
 
-  const handleSelectAdminRoleMode = (mode: "admin" | "chefe" | "currentUser") => {
+  const handleSelectAdminRoleMode = (mode: string) => {
     const targetUser = currentUser || extendedUser;
     if (!targetUser) return;
 
@@ -1566,6 +1566,10 @@ export default function App() {
     setDashboardActiveItem(undefined);
     setInnerPath([]);
     setView("presentation");
+  };
+
+  const handleShowAlert = (message: string) => {
+    setModalMessage(message);
   };
 
   const handleRegister = async (data: any) => {
@@ -1735,152 +1739,6 @@ export default function App() {
     );
   };
 
-  const isAdmin = isSuperBossUser(currentUser) || isInstitutionalAdminUser(currentUser);
-
-  const safeNavigate = (title: string, view: string, dashboardTitle?: string, dashboardActiveItem?: string) => {
-    pushCurrentToHistory();
-    setDashboardTitle(dashboardTitle || title);
-    if (dashboardActiveItem) setDashboardActiveItem(dashboardActiveItem);
-    setView(view as any);
-  };
-
-  const openSubMenu = (
-    title: string,
-    items: { title: string; subItems?: { title: string }[] }[],
-  ) => {
-    const lower = (title || "").toLowerCase().trim();
-
-    if (MENU_NAVIGATION_MAP[lower]) {
-      const cfg = MENU_NAVIGATION_MAP[lower];
-      safeNavigate(title, cfg.view, cfg.dashboardTitle, cfg.dashboardActiveItem);
-      return;
-    }
-    // ... rest of the original code ...
-    if (title === "Caixa de Mensagens") {
-    if (title === "Assinatura Digital") {
-      safeNavigate(title, "assinatura_digital");
-      return;
-    }
-    if (title === "Economato" || title === "Gestão de Economato") {
-      safeNavigate(title, "economato", "Gestão de Economato");
-      return;
-    }
-    if (title === "Gestão Patrimonial") {
-      safeNavigate(title, "gestao_patrimonial");
-      return;
-    }
-    if (title === "Documentos Normativos") {
-      safeNavigate(title, "documentos_normativos");
-      return;
-    }
-    if (title === "Relatórios") {
-      safeNavigate(title, "relatorios");
-      return;
-    }
-    if (
-      title === "Gestão de Colaboradores" ||
-      title === "Gestão de Pessoal" ||
-      lower === "gestão de colaboradores" ||
-      lower === "gestao de colaboradores"
-    ) {
-      safeNavigate(title, "colaboradores", "Gestão de Colaboradores", "Gestão de Pessoal");
-      return;
-    }
-    if (title === "Monografia" || title === "Gerar Monografia") {
-      safeNavigate(title, "monografia");
-      return;
-    }
-    if (title === "Gestão de Produtos e Preços") {
-      safeNavigate(title, "produtos_precos");
-      return;
-    }
-    if (title === "Gestão de Fornecedores" || title === "Fornecedores") {
-      safeNavigate(title, "supplier_management");
-      return;
-    }
-    if (
-      title === "Registo de Fornecedores" ||
-      title === "Registo de Fornecedor" ||
-      title === "Formulário de Registo de Fornecedores" ||
-      title === "Formulário de Registo de Fornecedor" ||
-      title === "SupplierRegistration" ||
-      title === "UGEA_SupplierForm"
-    ) {
-      safeNavigate("Registo de Fornecedor", "supplier_form");
-      return;
-    }
-    if (title === "Plano de Aquisição") {
-      safeNavigate(title, "plano_aquisicao");
-      return;
-    }
-    if (title === "Plano de Contratação") {
-      safeNavigate(title, "plano_contratacao");
-      return;
-    }
-
-    // NAVEGAÇÃO DE PLANOS / GESTÃO DE PLANOS
-    const isPlan =
-      title === "PESOE" ||
-      title === "Plano de Actividade da UGEA" ||
-      title === "Plano de Atividade da UGEA" ||
-      lower === "gestão de planos" ||
-      lower === "gestao de planos" ||
-      lower === "gestão de planos e actividades" ||
-      lower === "gestao de planos e actividades" ||
-      lower === "plano" ||
-      lower === "planos" ||
-      lower === "plano setorial" ||
-      lower === "plano de atividades" ||
-      lower === "planos de atividades" ||
-      lower === "plano de actividades" ||
-      lower === "planos de actividades" ||
-      lower === "plano de atividade" ||
-      lower === "plano de actividade" ||
-      lower === "plano do gabinete" ||
-      lower === "plano individual" ||
-      lower === "meu plano individual" ||
-      lower === "plano da direção" ||
-      lower === "plano da direccao" ||
-      lower === "planificação" ||
-      lower === "planificacao" ||
-      lower === "planificação de atividades" ||
-      lower === "planificação de actividades" ||
-      lower === "matriz de atividades" ||
-      lower === "matriz de actividades" ||
-      lower === "repartição de planificação" ||
-      lower === "reparticao de planificacao" ||
-      (lower.includes("plano") && !lower.includes("aquisição") && !lower.includes("contratação")) ||
-      lower.includes("planific");
-
-    if (isPlan) {
-      setDashboardTitle(title);
-      setDashboardActiveItem("Gestão de Planos");
-      setView("plano_workflow");
-      return;
-    }
-
-    if (title === "Entrada de Expediente" || title === "Saída de Expediente") {
-      setDashboardTitle(title);
-      setView("gestao_documentos");
-      return;
-    }
-
-    if (title === "Painel da UGEA") {
-      setDashboardTitle("Unidade Gestora e Executora de Aquisições");
-      setView("dashboard");
-      return;
-    }
-
-    if (items && items.length > 0) {
-      setSubMenuStack((prev) => [...prev, { title, items }]);
-      setView("submenu");
-    } else {
-      setDashboardTitle(title);
-      setDashboardActiveItem(title);
-      setView("dashboard");
-    }
-  };
-
   const goBack = useCallback(() => {
     setDashboardActiveItem(undefined);
 
@@ -1965,6 +1823,83 @@ export default function App() {
     }
   }, [historyStack, view, subMenuStack, dashboardTitle]);
 
+  const isAdmin = isSuperBossUser(currentUser) || isInstitutionalAdminUser(currentUser);
+
+  const safeNavigate = (title: string, targetView: string, customDashboardTitle?: string, customDashboardActiveItem?: string) => {
+    pushCurrentToHistory();
+    setDashboardTitle(customDashboardTitle || title);
+    if (customDashboardActiveItem) {
+      setDashboardActiveItem(customDashboardActiveItem);
+    } else {
+      setDashboardActiveItem(undefined);
+    }
+    setView(targetView as any);
+  };
+
+  const openSubMenu = (
+    title: string,
+    items: { title: string; subItems?: { title: string }[] }[],
+  ) => {
+    const lower = (title || "").toLowerCase().trim();
+
+    // 1. Verificar configuração explícita de submódulo autônomo
+    if ((MENU_NAVIGATION_MAP as Record<string, any>)[lower]) {
+      const cfg = (MENU_NAVIGATION_MAP as Record<string, any>)[lower];
+      safeNavigate(title, cfg.view, cfg.dashboardTitle, cfg.dashboardActiveItem);
+      return;
+    }
+
+    if (title === "Painel da UGEA" || lower === "ugea" || lower === "chefe da ugea") {
+      setDashboardTitle("Unidade Gestora e Executora de Aquisições");
+      setDashboardActiveItem(undefined);
+      setView("dashboard");
+      return;
+    }
+
+    // 2. Se possuir sub-itens filhos, deve sempre abrir o submenu da hierarquia
+    if (items && items.length > 0) {
+      setSubMenuStack((prev) => [...prev, { title, items }]);
+      setView("submenu");
+      return;
+    }
+
+    // 3. Ações específicas e diretas de Planos / PESOE (somente se não tiver sub-itens)
+    const isPlan =
+      title === "PESOE" ||
+      title === "Plano de Actividade da UGEA" ||
+      title === "Plano de Atividade da UGEA" ||
+      lower === "gestão de planos" ||
+      lower === "gestao de planos" ||
+      lower === "gestão de planos e actividades" ||
+      lower === "gestao de planos e actividades" ||
+      lower === "plano" ||
+      lower === "planos" ||
+      lower === "plano setorial" ||
+      lower === "plano de atividades" ||
+      lower === "planos de atividades" ||
+      lower === "plano de actividades" ||
+      lower === "planos de actividades" ||
+      lower === "plano de atividade" ||
+      lower === "plano de actividade" ||
+      lower === "plano do gabinete" ||
+      lower === "plano individual" ||
+      lower === "meu plano individual" ||
+      lower === "plano da direção" ||
+      lower === "plano da direccao" ||
+      lower === "matriz de atividades" ||
+      lower === "matriz de actividades";
+
+    if (isPlan) {
+      safeNavigate(title, "plano_workflow", title, "Gestão de Planos");
+      return;
+    }
+
+    // 4. Setores e Gabinetes gerais: navegação para Dashboard do setor
+    setDashboardTitle(title);
+    setDashboardActiveItem(title);
+    setView("dashboard");
+  };
+
   useEffect(() => {
     const handlePopState = () => {
       goBack();
@@ -1987,10 +1922,6 @@ export default function App() {
       setSubMenuStack((prev) => prev.slice(0, stackIdx + 1));
       setView("submenu");
     }
-  };
-
-  const handleShowAlert = (message: string) => {
-    setModalMessage(message);
   };
 
   const currentSubMenu =
@@ -2340,5 +2271,4 @@ export default function App() {
       </div>
     );
   }
-}
 

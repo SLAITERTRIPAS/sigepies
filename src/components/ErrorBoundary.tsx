@@ -46,6 +46,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
+    if (isIgnorableSystemError(error)) {
+      return { hasError: false, error: null };
+    }
     return { hasError: true, error };
   }
 

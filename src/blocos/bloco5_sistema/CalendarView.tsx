@@ -16,6 +16,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Event, Nota, PeriodoPlanificacao } from "../../types";
 import { holidays2026 } from "../../constants/holidays";
+import { safeJSONParse } from "../../lib/utils";
 import {
   DEFAULT_PLANNING_PERIOD,
   canManagePeriodoPlanificacao,
@@ -58,7 +59,7 @@ export default function CalendarView({
   const [isSavingPeriodo, setIsSavingPeriodo] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
 
-  const currentUser = user || (typeof window !== "undefined" ? JSON.parse(localStorage.getItem("sigep_logged_in_user") || "null") : null);
+  const currentUser = user || (typeof window !== "undefined" ? safeJSONParse(localStorage.getItem("sigep_logged_in_user"), null) : null);
   const canManagePeriod = canManagePeriodoPlanificacao(currentUser);
 
   useEffect(() => {

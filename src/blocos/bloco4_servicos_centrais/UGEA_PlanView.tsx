@@ -4,7 +4,7 @@ import { MatrixActivity } from "../../types";
 import { getAuthorizedActivities } from "../../lib/auth";
 
 interface UGEAPlanViewProps {
-  type: "Aquisicão" | "Contratação";
+  type: string;
   activities: MatrixActivity[];
   user?: any;
   onBack: () => void;

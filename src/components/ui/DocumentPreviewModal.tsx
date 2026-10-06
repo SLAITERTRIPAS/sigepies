@@ -1,5 +1,6 @@
 import { printElementById } from "../../lib/printUtils";
 import React, { useState } from "react";
+import { useModalAccessibility } from "../../hooks/useModalAccessibility";
 import {
   X,
   Download,
@@ -49,6 +50,11 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   processNo,
   collaboratorName,
 }) => {
+  const modalRef = useModalAccessibility<HTMLDivElement>({
+    isOpen,
+    onClose,
+  });
+
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -171,6 +177,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   return (
     <AnimatePresence>
       <div
+        ref={modalRef}
         className={`fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[200] flex items-center justify-center ${isFullscreen ? "p-0" : "p-2 md:p-6"}`}
       >
         <motion.div

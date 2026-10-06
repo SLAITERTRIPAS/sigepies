@@ -4,6 +4,7 @@ import { Supplier } from "../../types";
 import { usePersistentDraft } from "../../hooks/usePersistentDraft";
 import { DraftModal, SyncIndicator } from "../../components/ui/DraftMemoryUI";
 import { printElementById } from "../../lib/printUtils";
+import { firestoreService } from "../../lib/firestoreService";
 
 interface SupplierRegistrationFormProps {
   onBack: () => void;

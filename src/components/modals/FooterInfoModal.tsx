@@ -1,7 +1,8 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { X, ShieldCheck, Cpu, Code2, Award, CheckCircle2, Sparkles } from "lucide-react";
 import SigepLogo from "../SigepLogo";
 import FirebaseStatusIndicator from "../FirebaseStatusIndicator";
+import { useModalAccessibility } from "../../hooks/useModalAccessibility";
 
 interface FooterInfoModalProps {
   isOpen: boolean;
@@ -9,23 +10,16 @@ interface FooterInfoModalProps {
 }
 
 export const FooterInfoModal: React.FC<FooterInfoModalProps> = ({ isOpen, onClose }) => {
-  // Fechar com tecla Escape
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  const modalRef = useModalAccessibility<HTMLDivElement>({
+    isOpen,
+    onClose,
+  });
 
   if (!isOpen) return null;
 
   return (
     <div 
+      ref={modalRef}
       className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
