@@ -26,6 +26,7 @@ import {
   HelpCircle,
   Check,
   ExternalLink,
+  Search,
   Image as ImageIcon,
 } from "lucide-react";
 import { firestoreService, fetchCollection } from "../../lib/firestoreService";
@@ -162,6 +163,36 @@ export const EstruturaExplorer = ({
 
   // 4. Scoping / Filtragem por inquilino (Tenant)
   const [selectedInstId, setSelectedInstId] = useState<string>(loggedUser?.instituicaoId || "isps");
+
+  // Painel de Filtros e Pesquisa
+  const [instSearchTerm, setInstSearchTerm] = useState("");
+  const [instProvinciaFilter, setInstProvinciaFilter] = useState("Todas");
+  const [instCategoriaFilter, setInstCategoriaFilter] = useState("Todas");
+
+  const filteredInstituicoes = useMemo(() => {
+    return (instituicoes || []).filter((inst) => {
+      const term = instSearchTerm.toLowerCase();
+      const matchesSearch =
+        !instSearchTerm ||
+        (inst.nome && inst.nome.toLowerCase().includes(term)) ||
+        (inst.abreviatura && inst.abreviatura.toLowerCase().includes(term)) ||
+        (inst.sigla && inst.sigla.toLowerCase().includes(term)) ||
+        (inst.provincia && inst.provincia.toLowerCase().includes(term)) ||
+        (inst.distrito && inst.distrito.toLowerCase().includes(term)) ||
+        (inst.tipoActividades && inst.tipoActividades.toLowerCase().includes(term));
+
+      const matchesProvincia =
+        instProvinciaFilter === "Todas" ||
+        (inst.provincia && inst.provincia.toLowerCase() === instProvinciaFilter.toLowerCase());
+
+      const matchesCategoria =
+        instCategoriaFilter === "Todas" ||
+        (inst.categoriaEspecifica && inst.categoriaEspecifica.toLowerCase() === instCategoriaFilter.toLowerCase()) ||
+        (inst.tipoInstituicao && inst.tipoInstituicao.toLowerCase() === instCategoriaFilter.toLowerCase());
+
+      return matchesSearch && matchesProvincia && matchesCategoria;
+    });
+  }, [instituicoes, instSearchTerm, instProvinciaFilter, instCategoriaFilter]);
 
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [customDirecoes, setCustomDirecoes] = useState<any[]>([]);
@@ -302,16 +333,17 @@ export const EstruturaExplorer = ({
       } catch (_) {}
 
       const list = (data || []).filter((inst: any) => !deletedIds.includes(inst.id));
-      const completeList: any[] = [];
+      const hasISPS = list.some((i: any) => i.id === "isps");
+      const completeList = (!hasISPS && !deletedIds.includes("isps")) ? [ispsDefault, ...list] : list;
       setInstituicoes(completeList);
 
       // Se a instituição selecionada foi excluída ou não existe, seleciona a primeira restante
       if (selectedInstId && deletedIds.includes(selectedInstId)) {
-        const fallbackId = "";
+        const fallbackId = completeList[0]?.id || "";
         setSelectedInstId(fallbackId);
         setActiveInstituicaoId(fallbackId);
       } else if (!selectedInstId && completeList.length > 0) {
-        // This won't be hit with completeList = []
+        setSelectedInstId(completeList[0].id);
       }
     });
 
@@ -1932,7 +1964,7 @@ export const EstruturaExplorer = ({
       )}
 
       {/* 2. Conteúdo da aba GESTÃO DE INSTITUIÇÕES */}
-      {activeTab === "instituicoes" && isGlobalAdmin && (
+      {activeTab === "instituicoes" && (
         <div className="space-y-6">
           {/* Header com botão de registo */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
@@ -1993,14 +2025,81 @@ export const EstruturaExplorer = ({
             </div>
           )}
 
+          {/* Painel de Visualização no Dashboard: Pesquisa e Filtros por Localização ou Tipo */}
+          <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="relative w-full md:w-96">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                <Search size={16} />
+              </span>
+              <input
+                type="text"
+                value={instSearchTerm}
+                onChange={(e) => setInstSearchTerm(e.target.value)}
+                placeholder="Pesquisar por nome, sigla, província ou distrito..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+              />
+              {instSearchTerm && (
+                <button
+                  onClick={() => setInstSearchTerm("")}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Localização:</span>
+                <select
+                  value={instProvinciaFilter}
+                  onChange={(e) => setInstProvinciaFilter(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-600 cursor-pointer"
+                >
+                  <option value="Todas">Todas as Províncias</option>
+                  {Array.from(new Set(instituicoes.map(i => i.provincia).filter(Boolean))).map((prov: any) => (
+                    <option key={prov} value={prov}>{prov}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tipo/Categoria:</span>
+                <select
+                  value={instCategoriaFilter}
+                  onChange={(e) => setInstCategoriaFilter(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-600 cursor-pointer"
+                >
+                  <option value="Todas">Todas as Categorias</option>
+                  {Array.from(new Set(instituicoes.map(i => i.categoriaEspecifica || i.tipoInstituicao).filter(Boolean))).map((cat: any) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              {(instSearchTerm || instProvinciaFilter !== "Todas" || instCategoriaFilter !== "Todas") && (
+                <button
+                  onClick={() => {
+                    setInstSearchTerm("");
+                    setInstProvinciaFilter("Todas");
+                    setInstCategoriaFilter("Todas");
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-bold underline px-2 py-1 cursor-pointer"
+                >
+                  Limpar Filtros
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Lista de Instituições Registadas */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {instituicoes.length === 0 ? (
+            {filteredInstituicoes.length === 0 ? (
               <div className="col-span-full text-center bg-white border border-gray-100 p-12 rounded-3xl text-gray-500 text-sm">
-                Nenhuma instituição registada até ao momento. Clique em "Registar Instituição" para começar!
+                Nenhuma instituição encontrada com os filtros selecionados.
               </div>
             ) : (
-              instituicoes.map((inst) => (
+              filteredInstituicoes.map((inst) => (
                 <div
                   key={inst.id}
                   onClick={() => {

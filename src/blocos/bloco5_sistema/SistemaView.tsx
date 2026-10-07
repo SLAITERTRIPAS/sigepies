@@ -705,7 +705,7 @@ export default function SistemaView({
       hidden: isGlobalAdmin ? false : !(canManageUsers || isHRBoss),
     },
     { title: "Base de Dados", icon: Database, hidden: isGlobalAdmin ? false : !canManageUsers },
-    { title: "Gestão das Instituições", icon: Building, hidden: !isGlobalAdmin },
+    { title: "Gestão das Instituições", icon: Building, hidden: isGlobalAdmin ? false : !canManageUsers },
     { title: "Conformidade Normativa", icon: ShieldCheck },
     { title: "Monitorização de Sistema", icon: AlertOctagon, hidden: isGlobalAdmin ? false : !canManageUsers },
     { title: "Feriados e Alertas", icon: Bell, hidden: !isGlobalAdmin },

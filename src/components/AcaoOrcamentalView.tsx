@@ -651,9 +651,29 @@ export default function AcaoOrcamentalView({
   const authorizedActivities = useMemo(() => {
     if (!activities) return [];
     const valid = activities.filter(isValidActivity);
-    if (isSuperBossUser(user)) return valid;
-    return getAuthorizedActivities(valid, user);
-  }, [activities, user?.email, user?.role, user?.departamento, user?.setor, user?.reparticao, user?.cargo, user?.title, user?.uid, user?.id]);
+    if (isSuperBossUser(user) || isPlanificacaoOrDPEP) {
+      return getAuthorizedActivities(valid, user);
+    }
+
+    // Para utilizadores de setor: restringir estritamente às informações planificadas pelo próprio setor logado
+    const userDept = String(user?.departamento || user?.setor || user?.reparticao || title || "").toLowerCase().trim();
+    const userDir = String(user?.direcao || "").toLowerCase().trim();
+    const uEmail = String(user?.email || "").toLowerCase().trim();
+    const uName = String(user?.nome || user?.name || "").toLowerCase().trim();
+
+    return valid.filter((a) => {
+      const actDept = String(a.departamento || a.setor || a.reparticao || "").toLowerCase().trim();
+      const actDir = String(a.direcao || "").toLowerCase().trim();
+      const actCreator = String(a.createdBy || a.emailCriador || a.autorEmail || "").toLowerCase().trim();
+      const actCreatorName = String(a.createdByName || a.autor || "").toLowerCase().trim();
+
+      const isOwnDept = userDept && (actDept === userDept || actDept.includes(userDept) || userDept.includes(actDept));
+      const isOwnDir = userDir && (actDir === userDir || actDir.includes(userDir) || userDir.includes(actDir));
+      const isOwnCreator = (uEmail && actCreator === uEmail) || (uName && actCreatorName === uName);
+
+      return isOwnDept || isOwnDir || isOwnCreator;
+    });
+  }, [activities, user, title, isPlanificacaoOrDPEP]);
 
   // Extrair unidades organizacionais por nível
   const levelUnits = useMemo(() => {

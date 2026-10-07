@@ -45,4 +45,10 @@ export const MENU_NAVIGATION_MAP: Record<string, { view: string; dashboardTitle?
   "manual de instrucoes": { view: "manual_instrucoes", dashboardTitle: "Manual de Instruções" },
   "projeto científico": { view: "projeto_cientifico", dashboardTitle: "Projeto Científico" },
   "projeto cientifico": { view: "projeto_cientifico", dashboardTitle: "Projeto Científico" },
+  "gestão das instituições": { view: "dashboard", dashboardTitle: "Sistema", dashboardActiveItem: "Gestão das Instituições" },
+  "gestao das instituicoes": { view: "dashboard", dashboardTitle: "Sistema", dashboardActiveItem: "Gestão das Instituições" },
+  "gestão de instituições": { view: "dashboard", dashboardTitle: "Sistema", dashboardActiveItem: "Gestão das Instituições" },
+  "gestao de instituicoes": { view: "dashboard", dashboardTitle: "Sistema", dashboardActiveItem: "Gestão das Instituições" },
+  "instituições": { view: "dashboard", dashboardTitle: "Sistema", dashboardActiveItem: "Gestão das Instituições" },
+  "instituicoes": { view: "dashboard", dashboardTitle: "Sistema", dashboardActiveItem: "Gestão das Instituições" },
 };

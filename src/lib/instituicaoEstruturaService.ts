@@ -1441,3 +1441,37 @@ export function findFullHierarchyForSector(
   };
 }
 
+/**
+ * Valida e organiza a estrutura hierárquica (Órgão -> Direção -> Departamento -> Repartição -> Setor)
+ * garantindo que cada ação ou plano esteja estritamente vinculado ao setor/utilizador logado,
+ * evitando desvios na estrutura organizacional da instituição.
+ */
+export function validarEOrganizarHierarquia(item: any, user: any): any {
+  if (!item) return item;
+
+  const userDept = user?.departamento || user?.setor || user?.reparticao || "";
+  const userDir = user?.direcao || "";
+  const userOrg = user?.orgao || "Órgão de Direção e Gestão";
+
+  const isGlobalAdmin =
+    user?.isOwner === true ||
+    user?.role === "Administrador" ||
+    String(user?.email || "").toLowerCase() === "slaitertripas@gmail.com";
+
+  let validatedItem = { ...item };
+
+  if (!isGlobalAdmin && user) {
+    if (userDept && (!validatedItem.departamento || validatedItem.departamento === "Geral" || validatedItem.departamento === "-")) {
+      validatedItem.departamento = userDept;
+    }
+    if (userDir && (!validatedItem.direcao || validatedItem.direcao === "Geral" || validatedItem.direcao === "-")) {
+      validatedItem.direcao = userDir;
+    }
+    if (userOrg && (!validatedItem.orgao || validatedItem.orgao === "Geral")) {
+      validatedItem.orgao = userOrg;
+    }
+  }
+
+  return validatedItem;
+}
+
