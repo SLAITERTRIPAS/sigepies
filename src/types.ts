@@ -545,5 +545,22 @@ export interface PeriodoPlanificacao {
   autoSubmetido?: boolean;
   dataAutoSubmissao?: string;
   updatedAt?: any;
+  // Cronograma de Prazos e Tramitação programado por DPEP
+  prazoSubmissaoSetorial?: string;
+  prazoConsolidacaoDPEP?: string;
+  prazoParecerTecnico?: string;
+  prazoAprovacaoGeral?: string;
+}
+
+export interface SystemAlert {
+  id: string;
+  type: "crítico" | "aviso" | "feriado" | "informativo";
+  title: string;
+  message: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: any;
 }
 

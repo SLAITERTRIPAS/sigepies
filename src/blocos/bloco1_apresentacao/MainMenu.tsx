@@ -18,6 +18,7 @@ import { firestoreService } from "../../lib/firestoreService";
 import { baseMenuItems } from "../../constants/menuHierarchy";
 import {
   buildMenuItemsForInstituicao,
+  getActiveInstituicao,
   getActiveInstituicaoId,
 } from "../../lib/instituicaoEstruturaService";
 
@@ -90,6 +91,7 @@ export default function MainMenu({
   const [activeInstId, setActiveInstId] = useState<string>(() => {
     return user?.instituicaoId || getActiveInstituicaoId();
   });
+  const [activeInst, setActiveInst] = useState<any>(() => getActiveInstituicao());
   const [estruturaVersion, setEstruturaVersion] = useState(0);
   const [disabledMenus, setDisabledMenus] = useState<string[]>([]);
   const [disabledSubItems, setDisabledSubItems] = useState<string[]>([]);
@@ -136,18 +138,22 @@ export default function MainMenu({
       } else {
         setActiveInstId(getActiveInstituicaoId());
       }
+      setActiveInst(getActiveInstituicao());
       setEstruturaVersion((v) => v + 1);
     };
 
     const handleEstruturaUpdate = () => {
+      setActiveInst(getActiveInstituicao());
       setEstruturaVersion((v) => v + 1);
     };
 
     window.addEventListener("instituicao_changed", handleInstChange);
+    window.addEventListener("instituicao_updated", handleEstruturaUpdate);
     window.addEventListener("sigep_estrutura_updated", handleEstruturaUpdate);
 
     return () => {
       window.removeEventListener("instituicao_changed", handleInstChange);
+      window.removeEventListener("instituicao_updated", handleEstruturaUpdate);
       window.removeEventListener("sigep_estrutura_updated", handleEstruturaUpdate);
     };
   }, []);
@@ -205,8 +211,13 @@ export default function MainMenu({
     return accessibleBlocks.map(filterAndSetAccessible).filter(Boolean);
   }, [user, activeInstId, estruturaVersion, disabledMenus, disabledSubItems]);
 
+  const sidebarColor = activeInst?.sidebarColor || activeInst?.secondaryColor;
+
   return (
-    <div className="flex-1 min-h-0 w-full bg-white flex flex-col overflow-y-auto p-0">
+    <div 
+      className="flex-1 min-h-0 w-full flex flex-col overflow-y-auto p-0 transition-colors duration-500"
+      style={{ backgroundColor: sidebarColor ? `${sidebarColor}08` : "white" }}
+    >
       <main className="flex-1 min-h-0 w-full flex flex-col items-center p-0 overflow-y-auto mt-0">
         <div className="text-center mb-2 flex flex-col items-center shrink-0 mt-10">
           {pendingForMe.length > 0 && (

@@ -19,6 +19,7 @@ import { LibraryRegistration, BookRegistration } from "../../types";
 import { isSuperBossUser, isPatrimonioBossOrAdmin } from "../../lib/auth";
 import MainHeader from "../bloco1_apresentacao/MainHeader";
 import { UNIDADES_ORGANICAS_SISTEMA, DEPARTAMENTOS } from "../../constants/formOptions";
+import { getActiveInstituicao } from "../../lib/instituicaoEstruturaService";
 
 const getActivityValue = (act: any) => {
   let actVal = 0;
@@ -170,6 +171,22 @@ export default function SubMenu({
   matrixActivities?: any[];
   user?: any;
 }) {
+  const [activeInst, setActiveInst] = React.useState<any>(() => getActiveInstituicao());
+
+  React.useEffect(() => {
+    const handleInstUpdate = () => {
+      setActiveInst(getActiveInstituicao());
+    };
+    window.addEventListener("instituicao_changed", handleInstUpdate);
+    window.addEventListener("instituicao_updated", handleInstUpdate);
+    window.addEventListener("sigep_estrutura_updated", handleInstUpdate);
+    return () => {
+      window.removeEventListener("instituicao_changed", handleInstUpdate);
+      window.removeEventListener("instituicao_updated", handleInstUpdate);
+      window.removeEventListener("sigep_estrutura_updated", handleInstUpdate);
+    };
+  }, []);
+
   const [showLibraryVisitForm, setShowLibraryVisitForm] = useState(false);
   const [showBookRegistrationForm, setShowBookRegistrationForm] =
     useState(false);
@@ -434,18 +451,25 @@ export default function SubMenu({
     "bg-[#059669]", // Emerald 600
   ];
 
-  const colors = isOrangeTheme
-    ? orangeColors
-    : isGreenTheme
-      ? greenColors
-      : defaultColors;
+  const sidebarColor = activeInst?.sidebarColor || activeInst?.secondaryColor;
+
+  const colors = sidebarColor 
+    ? [sidebarColor]
+    : isOrangeTheme
+      ? orangeColors
+      : isGreenTheme
+        ? greenColors
+        : defaultColors;
 
   const isAllowed = (_item: any) => {
     return true;
   };
 
   return (
-    <div className="flex-1 min-h-0 w-full bg-[#f8f9fa] flex flex-col p-1 sm:p-2 overflow-y-auto">
+    <div 
+      className="flex-1 min-h-0 w-full flex flex-col p-1 sm:p-2 overflow-y-auto transition-colors duration-500"
+      style={{ backgroundColor: sidebarColor ? `${sidebarColor}10` : "#f8f9fa" }}
+    >
       <main className="w-full max-w-6xl mx-auto flex flex-col items-center py-2">
         {/* Top Header / Back Button */}
         <div className="w-full mb-3 sm:mb-5 flex flex-col items-center">

@@ -1019,6 +1019,7 @@ export function printActivitiesPlanDocument(options: PrintPlanOptions) {
               ` : ""}
               <td style="border: 1.5px solid #000000; padding: 6px 8px; font-weight: 600; width: 130px;">${rItem.rubrica || "-"}</td>
               <td style="border: 1.5px solid #000000; padding: 6px 8px; font-style: italic; width: 140px;">${rItem.necessidade || rItem.especificacao || "-"}</td>
+              <td style="border: 1.5px solid #000000; padding: 6px 8px; width: 130px;">${rItem.nomeProduto || rItem.produto || rItem.item || rItem.nomeItem || "-"}</td>
               <td style="text-align: center; border: 1.5px solid #000000; padding: 6px 4px; width: 45px; font-weight: bold;">${rItem.quantidade || "-"}</td>
               <td style="text-align: right; border: 1.5px solid #000000; padding: 6px 8px; width: 85px;">${rItem.precoUnitario ? formatMZN(rItem.precoUnitario) : "-"}</td>
               <td style="text-align: right; font-weight: bold; border: 1.5px solid #000000; padding: 6px 8px; width: 95px; background-color: #f8fafc;">${formatMZN(rTotal)}</td>
@@ -1036,7 +1037,7 @@ export function printActivitiesPlanDocument(options: PrintPlanOptions) {
     // Subtotal da Direção
     tableRowsHtml += `
       <tr style="background-color: #f1f5f9; font-weight: bold; border-top: 2px solid #000000; border-bottom: 2px solid #000000; font-size: 12px;">
-        <td colspan="15" style="border: 1.5px solid #000000; padding: 8px 12px;">
+        <td colspan="16" style="border: 1.5px solid #000000; padding: 8px 12px;">
           Subtotal Direção: ${dirName}
         </td>
         <td style="text-align: right; border: 1.5px solid #000000; padding: 8px 12px; font-size: 13px; font-weight: 900; background-color: #e2e8f0;">
@@ -1050,7 +1051,7 @@ export function printActivitiesPlanDocument(options: PrintPlanOptions) {
   // Linha de TOTAL GERAL
   tableRowsHtml += `
     <tr style="background-color: #0f172a; color: #ffffff; font-weight: 900; border: 2px solid #000000; font-size: 13px;">
-      <td colspan="15" style="border: 1.5px solid #000000; padding: 10px 14px; color: #ffffff; letter-spacing: 0.5px;">
+      <td colspan="16" style="border: 1.5px solid #000000; padding: 10px 14px; color: #ffffff; letter-spacing: 0.5px;">
         Valor Global Total do Plano de Actividades (${year})
       </td>
       <td style="text-align: right; border: 1.5px solid #000000; padding: 10px 14px; font-size: 14px; font-weight: 900; color: #ffffff; background-color: #1e293b;">
@@ -1072,7 +1073,7 @@ export function printActivitiesPlanDocument(options: PrintPlanOptions) {
             <th colspan="3" style="border: 1.5px solid #000000; padding: 6px 8px; text-align: center; color: #000000; background-color: #e2e8f0;">II. Actividade</th>
             <th colspan="2" style="border: 1.5px solid #000000; padding: 6px 6px; text-align: center; color: #000000; background-color: #e2e8f0;">V. Tempo</th>
             <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; text-align: center; width: 45px; color: #000000; background-color: #cbd5e1;">VI. Trans</th>
-            <th colspan="5" style="border: 1.5px solid #000000; padding: 6px 8px; text-align: center; color: #000000; background-color: #e2e8f0;">VII. Rubricas e Necessidades</th>
+            <th colspan="6" style="border: 1.5px solid #000000; padding: 6px 8px; text-align: center; color: #000000; background-color: #e2e8f0;">VII. Rubricas e Necessidades</th>
             <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 8px; text-align: center; width: 90px; color: #000000; background-color: #cbd5e1;">IX. Obs</th>
           </tr>
           <tr style="background-color: #f1f5f9; color: #000000; font-size: 11px; font-weight: 800; border: 1.5px solid #000000;">
@@ -1086,6 +1087,7 @@ export function printActivitiesPlanDocument(options: PrintPlanOptions) {
             <th style="border: 1.5px solid #000000; padding: 5px 4px; text-align: center; color: #000000; width: 50px;">Met/Real.</th>
             <th style="border: 1.5px solid #000000; padding: 5px 6px; text-align: left; color: #000000; width: 130px;">Rubrica</th>
             <th style="border: 1.5px solid #000000; padding: 5px 6px; text-align: left; color: #000000; width: 140px;">Necessidade</th>
+            <th style="border: 1.5px solid #000000; padding: 5px 6px; text-align: left; color: #000000; width: 130px;">nome do produto</th>
             <th style="border: 1.5px solid #000000; padding: 5px 4px; text-align: center; color: #000000; width: 45px;">Qtd</th>
             <th style="border: 1.5px solid #000000; padding: 5px 6px; text-align: right; color: #000000; width: 85px;">Preço Unit.</th>
             <th style="border: 1.5px solid #000000; padding: 5px 6px; text-align: right; color: #000000; width: 95px;">Total (MT)</th>

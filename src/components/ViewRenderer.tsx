@@ -638,6 +638,8 @@ const ViewRendererInner: React.FC<ViewRendererProps> = ({
 
     case "supplier_management":
     case "suppliers":
+    case "gestao_fornecedores":
+    case "gestao_fornecedor":
       return (
         <UGEA_SupplierManagementView
           onBack={goBack}
@@ -649,13 +651,27 @@ const ViewRendererInner: React.FC<ViewRendererProps> = ({
 
     case "supplier_form":
     case "ugea_supplier_form":
+    case "registo_fornecedor":
+    case "registo_fornecedores":
+    case "novo_registo_fornecedor":
       return (
         <UGEA_SupplierRegistrationForm
           onBack={() => (onSetView ? onSetView("supplier_management") : goBack())}
           onSubmit={async (s) => {
-            await firestoreService.suppliers.set(s.id, s);
-            if (onShowAlert) {
-              onShowAlert("Fornecedor registado com sucesso!", "success");
+            try {
+              if (s.id) {
+                await firestoreService.suppliers.set(s.id, s);
+              } else {
+                await firestoreService.suppliers.add(s);
+              }
+              if (onShowAlert) {
+                onShowAlert("Fornecedor registado com sucesso!", "success");
+              }
+            } catch (err) {
+              console.error("Erro ao guardar fornecedor:", err);
+              if (onShowAlert) {
+                onShowAlert("Erro ao guardar fornecedor.", "error");
+              }
             }
             if (onSetView) {
               onSetView("supplier_management");

@@ -663,19 +663,27 @@ export default function ActivityForm({
             ? initialData.rubricas.map((r: any, rIdx: number) => ({
                 ...r,
                 id: r.id || Date.now() + rIdx,
+                rubrica: r.rubrica || initialData.orcamento || "",
+                necessidade: r.necessidade || r.especificacao || "",
+                especificacao: r.especificacao || r.necessidade || "",
+                nomeProduto: r.nomeProduto || r.produto || r.item || r.nomeItem || "",
+                quantidade: Number(r.quantidade ?? r.quant ?? 0),
+                precoUnitario: Number(r.precoUnitario ?? r.unitario ?? 0),
+                valorTotal: Number(r.valorTotal ?? r.total ?? (Number(r.quantidade || 0) * Number(r.precoUnitario || 0))),
               }))
             : [
                 {
                   id: 1,
                   rubrica: initialData.orcamento || "",
-                  necessidade: "",
-                  especificacao: "",
+                  necessidade: initialData.necessidade || initialData.especificacao || "",
+                  especificacao: initialData.especificacao || initialData.necessidade || "",
+                  nomeProduto: initialData.nomeProduto || initialData.produto || initialData.item || "",
                   detalhes: "",
                   pessoas: 1,
-                  quantidade: 0,
+                  quantidade: initialData.quantidade || 0,
                   dias: 0,
-                  precoUnitario: initialData.valor || 0,
-                  valorTotal: initialData.valor || 0,
+                  precoUnitario: initialData.valor || initialData.precoUnitario || 0,
+                  valorTotal: initialData.valor || initialData.valorTotal || 0,
                   pessoa: "",
                   valorDiario: 6000,
                   temMeioDia: false,
@@ -1477,6 +1485,7 @@ export default function ActivityForm({
       "",
       "",
       "",
+      "",
       ""
     ];
 
@@ -1494,9 +1503,10 @@ export default function ActivityForm({
       "M/T",
       "Rúbrica",
       "Necessidade",
+      "nome do produto",
       "QUANT",
       "Unitário (MT)",
-      "VALOR TOTAL GERAL (MZM)"
+      "VALOR TOTAL GERAL (MZN)"
     ];
 
     // Dados de exemplo baseados na imagem (1 actividade com 3 rubricas)
@@ -1529,7 +1539,7 @@ export default function ActivityForm({
       { s: { r: 0, c: 5 }, e: { r: 0, c: 7 } }, // II. ATIVIDADE
       { s: { r: 0, c: 8 }, e: { r: 0, c: 9 } }, // V. TEMPO E DURAÇÃO
       { s: { r: 0, c: 10 }, e: { r: 1, c: 10 } }, // VI. TRANS
-      { s: { r: 0, c: 11 }, e: { r: 0, c: 15 } }, // VII. RUBRICAS E NECESSIDADES
+      { s: { r: 0, c: 11 }, e: { r: 0, c: 16 } }, // VII. RUBRICAS E NECESSIDADES
 
       // Corpo (Mesclagem vertical para a mesma actividade - Linhas 3 a 5 da planilha)
       { s: { r: 2, c: 0 }, e: { r: 4, c: 0 } }, // N/O
@@ -5561,9 +5571,9 @@ export default function ActivityForm({
                     )}
 
                     <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <label className="block text-[12px] font-serif font-black text-blue-900  tracking-wide ml-2">
+                          <label className="block text-[12px] font-serif font-black text-blue-900 tracking-wide ml-2">
                             Rúbrica
                           </label>
                           <select
@@ -5607,7 +5617,7 @@ export default function ActivityForm({
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <label className="block text-[12px] font-serif font-black text-blue-900  tracking-wide ml-2">
+                          <label className="block text-[12px] font-serif font-black text-blue-900 tracking-wide ml-2">
                             Necessidade
                           </label>
                           <select
@@ -5638,6 +5648,29 @@ export default function ActivityForm({
                                 ),
                               )}
                           </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-[12px] font-serif font-black text-blue-900 tracking-wide ml-2">
+                            Nome do Produto ou Serviço
+                          </label>
+                          <input
+                            type="text"
+                            value={rubrica.nomeProduto || ""}
+                            disabled={isBlocked || !rubrica.rubrica}
+                            placeholder="Digite o nome do produto ou serviço..."
+                            onChange={(e) => {
+                              const newRubricas = [...formData.rubricas];
+                              newRubricas[index] = {
+                                ...rubrica,
+                                nomeProduto: e.target.value,
+                              };
+                              setFormData({
+                                ...formData,
+                                rubricas: newRubricas,
+                              });
+                            }}
+                            className="w-full px-5 py-3 border border-blue-900/40 rounded-2xl text-[14px] font-bold text-gray-800 outline-none focus:border-blue-900 transition-all bg-white h-[52px] shadow-sm"
+                          />
                         </div>
                       </div>
 

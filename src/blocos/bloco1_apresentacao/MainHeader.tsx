@@ -28,6 +28,8 @@ import {
   ChevronDown,
   Globe,
   UserCog,
+  Search,
+  BoxIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import NotificationCenter from "../bloco5_sistema/NotificationCenter";
@@ -40,6 +42,7 @@ import SigepLogo from "../../components/SigepLogo";
 import { getActiveInstituicao, getActiveInstituicaoId, setActiveInstituicaoId } from "../../lib/instituicaoEstruturaService";
 import { getSystemLogo } from "../../lib/logoService";
 import GlobalSearch from "../../components/GlobalSearch";
+import InstitutionalProfileModal from "../../components/modals/InstitutionalProfileModal";
 
 interface MainHeaderProps {
   user?: any;
@@ -147,6 +150,7 @@ export default function MainHeader({
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMsg, setCopiedMsg] = useState(false);
+  const [showInstProfileModal, setShowInstProfileModal] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -177,9 +181,9 @@ export default function MainHeader({
   const [showMenu, setShowMenu] = useState(false);
 
   // Cores dinâmicas derivadas do logótipo da instituição
-  const primaryBg = activeInst?.primaryColor || "#050b38";
-  const secondaryBg = activeInst?.secondaryColor || "#070e2d";
-  const accentColor = activeInst?.accentColor || "#FFB800";
+  const primaryBg = activeInst?.headerColor || activeInst?.primaryColor || "#0a0f1d";
+  const secondaryBg = "#7f1d1d"; // Cor de fundo do relógio (vinho conforme imagem)
+  const accentColor = activeInst?.footerColor || activeInst?.accentColor || "#FFB800";
 
   // Estados dinâmicos sincronizados com o logotipo e nome aplicados ao sistema
   const [systemLogo, setSystemLogo] = useState<string | null>(() => {
@@ -303,6 +307,7 @@ export default function MainHeader({
 
   const isSuperAdmin = isSuperBossUser(user) || user?.isOwner || user?.role === "Proprietário" || user?.role === "Administrador do Sistema" || user?.role === "admin";
   const isInstAdmin = isInstitutionalAdminAccount(user);
+  const isAnyAdmin = isSuperAdmin || isInstAdmin;
 
   const getDisplayName = (u: any) => {
     const colab = colaboradores.find(
@@ -437,385 +442,249 @@ export default function MainHeader({
         onClose={() => setShowShareModal(false)}
         userName={user?.name}
       />
+      <InstitutionalProfileModal 
+        isOpen={showInstProfileModal}
+        onClose={() => setShowInstProfileModal(false)}
+        instituicao={currentInst}
+      />
       <header
-        className="w-full flex flex-col flex-none z-50 shadow-2xl relative border-b border-white/20 transition-colors duration-500"
+        className="w-full flex flex-col flex-none z-50 shadow-2xl relative transition-all duration-500"
         style={{ 
           backgroundColor: primaryBg,
-          fontFamily: '"Bookman Old Style", serif' 
+          fontFamily: '"Inter", "Segoe UI", sans-serif' 
         }}
       >
-        <div className="w-full flex justify-between items-center px-2 sm:px-4 md:px-6 py-1.5 md:py-2 gap-2 md:gap-4">
-          {/* Left - Separação Soberana: SISTEMA (SIGEP) vs. INSTITUIÇÃO ATIVA */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* 1. Logotipo e Identidade do SISTEMA (SIGEP) - Visível apenas para Administrador Geral ou Proprietário */}
-            {(isSuperAdmin) ? (
+        <div className="w-full flex justify-between items-center px-4 py-2 gap-4">
+          {/* Left - SIGEP Logo & Search */}
+          <div className="flex items-center gap-6 shrink-0 flex-1">
+            {/* 1. Logotipo SISTEMA (SIGEP) */}
+            <div 
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("open_view", { detail: { view: "dashboard" } }));
+              }}
+              className="flex items-center gap-3 cursor-pointer group"
+            >
+              <div className="relative w-12 h-12 flex items-center justify-center">
+                {/* 3D Cube Icon Simulation */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-600 to-blue-700 rounded-xl rotate-12 shadow-lg group-hover:rotate-0 transition-transform duration-300"></div>
+                <div className="absolute inset-0 bg-white/20 rounded-xl backdrop-blur-sm -rotate-6 group-hover:rotate-0 transition-transform duration-300"></div>
+                <BoxIcon className="relative w-8 h-8 text-white drop-shadow-md" />
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-2xl font-black tracking-tighter text-white leading-none italic">
+                  SIGEP
+                </h1>
+                <span className="text-[9px] font-bold tracking-[0.3em] text-blue-400 uppercase leading-none mt-1">
+                  SISTEMA
+                </span>
+              </div>
+            </div>
+
+            {/* 2. Logotipo e Identidade da INSTITUIÇÃO ATIVA - Oculto para Administrador Geral conforme solicitado */}
+            {!isSuperAdmin && (
               <>
-                <div 
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent("open_view", { detail: { view: "dashboard" } }));
-                  }}
-                  title="SISTEMA SIGEP - Ir para a Visão Geral do Sistema"
-                  className="flex flex-col items-center justify-center shrink-0 cursor-pointer hover:opacity-95 active:scale-95 transition-all group"
+                {/* Separador Vertical */}
+                <div className="h-10 w-px bg-white/10" />
+
+                <button 
+                  onClick={() => isAnyAdmin && setShowInstProfileModal(true)}
+                  disabled={!isAnyAdmin}
+                  className={`flex items-center gap-3 min-w-0 group/inst transition-all ${isAnyAdmin ? 'cursor-pointer hover:bg-white/5 p-1 rounded-xl' : 'cursor-default'}`}
+                  title={isAnyAdmin ? "Clique para gerir o perfil da instituição" : instName}
                 >
-                  <div className="flex items-center justify-center bg-transparent overflow-hidden w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0 group-hover:scale-105 transition-all">
-                    {effectiveSystemLogo ? (
+                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10 group-hover/inst:border-blue-500/50 transition-all">
+                    {instLogo ? (
                       <img
-                        src={effectiveSystemLogo}
-                        alt="Logotipo do Sistema SIGEP"
-                        className="w-full h-full object-contain filter drop-shadow-sm"
+                        src={instLogo}
+                        alt={`Logotipo da ${instName}`}
+                        className="w-full h-full object-contain p-1"
                         referrerPolicy="no-referrer"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <SigepLogo size="sm" className="!w-full !h-full max-w-full max-h-full" showText={false} animated={true} />
-                      </div>
+                      <Building2 size={20} className="text-blue-400" />
                     )}
                   </div>
-                  <h2
-                    className="text-[6.5px] sm:text-[7.5px] md:text-[8.5px] font-black tracking-[0.18em] text-white/90 uppercase mt-0.5 select-none whitespace-nowrap"
-                    style={textShadowLight}
-                  >
-                    SIGEP &bull; SISTEMA
-                  </h2>
-                </div>
-                {/* Separador Visual entre o Sistema e a Instituição */}
-                <div className="hidden sm:block h-8 sm:h-10 w-px bg-white/20 shrink-0" />
-              </>
-            ) : null}
-
-            {/* 2. Logotipo e Identidade da INSTITUIÇÃO ATIVA */}
-            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl bg-transparent flex items-center justify-center shrink-0">
-                {instLogo ? (
-                  <img
-                    src={instLogo}
-                    alt={`Logotipo da ${instName}`}
-                    className="w-full h-full object-contain"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="w-full h-full rounded-lg bg-slate-900 text-white flex flex-col items-center justify-center p-0.5 text-center">
-                    <Building2 size={15} className="text-amber-400" />
-                    <span className="text-[5.5px] font-black uppercase tracking-tighter truncate max-w-full">
-                      {instSigla || "INST"}
-                    </span>
+                  <div className="flex flex-col min-w-0 text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest leading-none">Instituição</span>
+                      {isAnyAdmin && <Settings size={8} className="text-white/20 group-hover/inst:text-blue-400 animate-pulse" />}
+                    </div>
+                    <h3 className="text-xs font-black text-white truncate max-w-[150px] uppercase tracking-wide group-hover/inst:text-blue-200 transition-colors">
+                      {instAbreviatura}
+                    </h3>
                   </div>
-                )}
-              </div>
+                </button>
+              </>
+            )}
 
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[7px] md:text-[8px] font-black uppercase tracking-wider text-white flex items-center gap-0.5">
-                    <Building size={9} className="text-white" />
-                    Instituição
-                  </span>
-                  {isSuperAdmin && (
-                    <span className="text-[6px] md:text-[7px] font-mono px-1 py-0.2 bg-white/20 text-white rounded border border-white/30 font-bold">
-                      Admin Geral (Gere Tudo)
-                    </span>
-                  )}
-                  {isInstAdmin && (
-                    <span className="text-[6px] md:text-[7px] font-mono px-1 py-0.2 bg-white/20 text-white rounded border border-white/30 font-bold">
-                      Admin da Instituição
-                    </span>
-                  )}
+            {/* Separador Vertical Final antes da Pesquisa */}
+            <div className="h-10 w-px bg-white/10" />
+
+            {/* BARRA DE PESQUISA CENTRAL (Estilo Imagem) */}
+            <div className="hidden lg:flex flex-1 max-w-[400px]">
+              <div className="relative w-full group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-white/40 group-focus-within:text-blue-400 transition-colors" />
                 </div>
-
-                {isSuperAdmin && instituicoesList.length > 1 ? (
-                  <select
-                    value={getActiveInstituicaoId()}
-                    onChange={(e) => {
-                      setActiveInstituicaoId(e.target.value);
-                      const selected = instituicoesList.find((i) => i.id === e.target.value);
-                      if (selected) setActiveInstData(selected);
-                      window.dispatchEvent(new CustomEvent("instituicao_changed", { detail: { id: e.target.value } }));
-                    }}
-                    className="bg-black/50 text-white text-[9px] sm:text-[10px] md:text-[11px] font-black border border-white/20 rounded-md px-1.5 py-0.5 outline-none cursor-pointer max-w-[120px] sm:max-w-[170px] md:max-w-[210px] truncate mt-0.5 hover:border-amber-400 transition"
-                    title="Alternar Instituição Ativa (Administrador Geral)"
-                  >
-                    {instituicoesList.map((inst) => (
-                      <option key={inst.id} value={inst.id} className="bg-slate-900 text-white">
-                        {inst.nome}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <h3
-                    className="text-[10px] sm:text-[12px] md:text-[13px] font-serif font-black tracking-wider text-white leading-tight truncate max-w-[110px] sm:max-w-[160px] md:max-w-[210px]"
-                    style={textShadowStyle}
-                    title={instName}
-                  >
-                    {instAbreviatura}
-                  </h3>
-                )}
+                <input
+                  type="text"
+                  placeholder="O que desejas encontrar?"
+                  className="block w-full bg-black/30 border border-white/10 text-white text-xs rounded-full py-2.5 pl-10 pr-4 focus:ring-2 focus:ring-blue-500/50 focus:bg-black/50 transition-all placeholder:text-white/30 outline-none"
+                />
               </div>
-            </div>
-
-            {/* BARRA DE PESQUISA GLOBAL - INTEGRADA NO LADO ESQUERDO */}
-            <div className="hidden lg:flex ml-4 xl:ml-8 flex-1 min-w-[150px] max-w-[400px]">
-              <GlobalSearch 
-                colaboradores={colaboradores}
-                processos={processos}
-                matrixActivities={matrixActivities}
-                instituicoes={instituicoes}
-              />
             </div>
           </div>
 
-          {/* Center - Date & Time (Floating Box) */}
+          {/* Center - Date & Time (Vinho Box) */}
           <div 
-            className="hidden sm:flex flex-col items-center justify-center border-2 border-white/20 px-6 py-1.5 min-w-[210px] md:min-w-[240px] mx-auto rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.7)] transition-colors duration-500"
+            className="hidden xl:flex flex-col items-center justify-center px-8 py-1.5 min-w-[280px] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10"
             style={{ 
               backgroundColor: secondaryBg,
-              fontFamily: '"Bookman Old Style", Georgia, serif'
             }}
           >
-            <div className="flex flex-col items-center justify-center gap-0.5 w-full leading-tight text-center">
-              <span
-                className="text-xs md:text-sm font-black tracking-widest text-white"
-                style={{
-                  color: "#FFFFFF",
-                  textShadow: "1.5px 1.5px 0px #000, 2px 2px 0px #000, 3px 3px 6px rgba(0,0,0,0.8)",
-                }}
-              >
-                {dayOfWeek}
+            <div className="flex flex-col items-center gap-0">
+              <span className="text-[10px] font-black tracking-[0.2em] text-white/90 uppercase">
+                {dayOfWeek}, {dateStr.toUpperCase()}
               </span>
-              <span
-                className="text-white text-xl md:text-2xl font-black tracking-widest tabular-nums my-0.5"
-                style={{
-                  textShadow: "1.5px 1.5px 0px #000, 2.5px 2.5px 0px #000, 3px 3px 6px rgba(0,0,0,0.8)",
-                }}
-              >
+              <span className="text-2xl md:text-3xl font-black tracking-widest text-white tabular-nums drop-shadow-md">
                 {timeStr}
-              </span>
-              <span
-                className="text-white text-[11px] md:text-xs font-bold tracking-wide"
-                style={{
-                  textShadow: "1px 1px 0px #000, 2px 2px 4px rgba(0,0,0,0.8)",
-                }}
-              >
-                {dateStr}
               </span>
             </div>
           </div>
 
-          {/* Right - User Info and System Controls */}
-          <div className="flex items-center gap-4 md:gap-6">
-            {/* Notification Center */}
-            {isAllowedForNotifications && <NotificationCenter user={user} />}
-            
-            {/* User Profile Area */}
-            <div className="flex items-center gap-2">
-              <div className="relative shrink-0">
-                <div 
-                  className="w-8 h-8 md:w-11 md:h-11 bg-[#E1E8FA] rounded-2xl border-2 flex items-center justify-center text-[#121c60] shadow-xl overflow-hidden border-white/60"
-                >
-                  {(() => {
-                    const isSystemOwner = isSuperBossUser(user) || user?.isOwner || user?.role === "Proprietário" || user?.role === "Administrador do Sistema" || user?.role === "admin";
-                    if (isSystemOwner && systemOwnerPhoto) {
-                      return (
-                        <img
-                          src={systemOwnerPhoto}
-                          alt={systemOwnerName}
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      );
-                    }
-                    const colab = colaboradores.find(
-                      (c) =>
-                        (user?.nuit && c.nuit && String(c.nuit).trim() === String(user.nuit).trim()) ||
-                        (user?.email && c.email && c.email.toLowerCase().trim() === user.email.toLowerCase().trim()) ||
-                        (user?.id && c.id && String(c.id).trim() === String(user.id).trim()) ||
-                        (user?.name && c.nome && c.nome.toLowerCase().trim() === user.name.toLowerCase().trim())
-                    );
-                    const photo =
-                      colab?.photo ||
-                      colab?.foto ||
-                      colab?.imagem ||
-                      colab?.avatar ||
-                      user?.photoURL ||
-                      user?.photo;
-                    const altName = isSystemOwner ? systemOwnerName : (colab?.nome || colab?.name || user?.name || "Utilizador");
-                    return photo ? (
-                      <img
-                        src={photo}
-                        alt={altName}
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <User
-                        className="w-6 h-6 md:w-[28px] md:h-[28px]"
-                        strokeWidth={2.5}
-                      />
-                    );
-                  })()}
-                </div>
-                <div 
-                  className="absolute -bottom-1 -right-0.5 w-4 h-4 bg-[#00FF00] rounded-full border-2"
-                  style={{ borderColor: primaryBg }}
-                ></div>
-              </div>
-
-              <div className="hidden sm:flex flex-col gap-1 min-w-0">
-                <span
-                  className="text-white font-black text-[8px] md:text-[10px] lg:text-[11px] tracking-widest truncate max-w-[180px] lg:max-w-[220px]"
-                  style={textShadowStyle}
-                >
-                  {isSuperBossUser(user) || user?.isOwner || user?.role === "Proprietário" || user?.role === "Administrador do Sistema" || user?.role === "admin"
-                    ? systemOwnerName
-                    : tc(getDisplayName(user))}
-                </span>
-                <div 
-                  className="text-white text-[5px] md:text-[6px] font-black px-3 py-0.5 rounded shadow-md tracking-wider truncate text-center bg-white/20 border border-white/30"
-                >
-                  {isSuperBossUser(user) || user?.isOwner || user?.role === "Proprietário" || user?.role === "Administrador do Sistema" || user?.role === "admin"
-                    ? "Proprietário e Programador"
-                    : tc(
-                        user?.cargo ||
-                        user?.role ||
-                        "Administrador"
-                      )}
-                </div>
-                <div className="bg-black/60 text-white text-[5px] md:text-[6px] font-black px-3 py-0.5 rounded shadow-md tracking-wider truncate border border-white/20 text-center">
-                  {isSuperBossUser(user) || user?.isOwner || user?.role === "Proprietário" || user?.role === "Administrador do Sistema" || user?.role === "admin"
-                    ? "Proprietário do Sistema"
-                    : tc(user?.direcao || user?.departamento || "")}
-                </div>
-              </div>
-            </div>
-
-            {/* System Icons (Window Controls style) */}
-            <div className="flex items-center gap-1.5 md:gap-2">
-              {/* Botão de Alternar Modo de Acesso para Administradores da Instituição */}
-              {isInstitutionalAdminAccount(user) && onOpenRoleSelector && (
-                <button
-                  type="button"
-                  onClick={onOpenRoleSelector}
-                  title="Alternar Modo de Acesso (Administrador / Usuário Normal)"
-                  className="h-7 sm:h-8 px-2 sm:px-2.5 flex items-center gap-1.5 border-2 border-white/40 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer shadow-sm active:scale-95 text-[10px] md:text-[11px] font-bold"
-                >
-                  <UserCog size={15} className="text-white" />
-                  <span className="hidden md:inline text-white">
-                    {user?.activeRoleMode === "chefe" ? "Modo: Chefe" : user?.activeRoleMode === "user" ? "Modo: Usuário Normal" : "Modo: Administrador"}
-                  </span>
-                </button>
-              )}
-
-              {/* Botão de IA Quântica SIGDE - Apenas para Administrador Geral / Proprietário */}
-              {isSuperBossUser(user) && (
-                <button
-                  type="button"
-                  onClick={onOpenQuantumAI}
-                  title="IA Quântica SIGDE (99.8% Coerência) - Abrir Copiloto Inteligente"
-                  className="h-7 sm:h-8 px-2 sm:px-2.5 flex items-center gap-1.5 border-2 border-cyan-400 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 transition-all cursor-pointer shadow-[0_0_12px_rgba(6,182,212,0.3)] active:scale-95 text-[11px] font-bold"
-                >
-                  <Cpu size={15} className="text-cyan-300 animate-pulse" />
-                  <span className="hidden xl:inline text-cyan-200">IA Quântica SIGDE</span>
-                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-cyan-400/20 text-emerald-300 font-bold border border-cyan-400/30">
-                    99.8%
-                  </span>
-                </button>
-              )}
-
-              {/* Botão Projeto Científico removido */}
-              
-              {user && (
-                <button
-                  onClick={onSync}
-                  title="Sincronizar com a Nuvem (Firestore)"
-                  className="w-7 h-7 flex items-center justify-center border-2 border-blue-500 rounded bg-transparent text-blue-500 hover:bg-blue-500/10 transition-all cursor-pointer relative"
-                >
-                  <RefreshCcw size={16} />
-                </button>
-              )}
+          {/* Right - Controls and User */}
+          <div className="flex items-center gap-4 flex-1 justify-end">
+            {/* System Actions */}
+            <div className="flex items-center gap-1.5 bg-black/20 p-1 rounded-lg border border-white/5">
+              <button
+                onClick={onSync}
+                title="Sincronizar"
+                className="px-2 py-1 flex items-center gap-1 text-[10px] font-black text-blue-400 border border-blue-500/30 rounded hover:bg-blue-500/10 transition-all"
+              >
+                <RefreshCcw size={12} className={isSyncing ? "animate-spin" : ""} />
+                <span>SINC</span>
+              </button>
               <button
                 onClick={onOpenBackup}
                 title="Base de Dados"
-                className="w-7 h-7 flex items-center justify-center border-2 border-slate-400 rounded bg-transparent text-slate-100 hover:bg-slate-400/10 transition-all"
+                className="px-2 py-1 flex items-center gap-1 text-[10px] font-black text-slate-300 border border-slate-500/30 rounded hover:bg-slate-500/10 transition-all"
               >
-                <Database size={16} />
+                <Database size={12} />
+                <span>DB</span>
               </button>
-              {/* Window Control Buttons: Amarelo (Minimizar), Verde (Maximizar), Vermelho (Fechar/Sair) */}
-              <button
-                type="button"
-                onClick={onMinimize}
-                title="Minimizar Janela"
-                className="w-8 h-8 flex items-center justify-center border-2 border-amber-400 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/30 transition-all cursor-pointer shadow-sm active:scale-95"
-              >
-                <Minus size={18} strokeWidth={3} />
-              </button>
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                title={isFullscreen ? "Restaurar Ecrã" : "Maximizar Ecrã Inteiro"}
-                className="w-8 h-8 flex items-center justify-center border-2 border-emerald-400 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/30 transition-all cursor-pointer shadow-sm active:scale-95"
-              >
-                {isFullscreen ? <Minimize2 size={18} strokeWidth={3} /> : <Maximize2 size={18} strokeWidth={3} />}
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onLogout?.();
-                }}
-                title="Fechar / Terminar Sessão"
-                className="w-8 h-8 flex items-center justify-center border-2 border-red-500 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/30 transition-all cursor-pointer shadow-sm active:scale-95"
-              >
-                <LogOut size={18} strokeWidth={3} />
-              </button>
+              
+              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-white/10">
+                <button
+                  onClick={onMinimize}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 transition-all"
+                >
+                  <Minus size={14} strokeWidth={3} />
+                </button>
+                <button
+                  onClick={toggleFullscreen}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/40 transition-all"
+                >
+                  {isFullscreen ? <Minimize2 size={14} strokeWidth={3} /> : <Maximize2 size={14} strokeWidth={3} />}
+                </button>
+                <button
+                  onClick={onLogout}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-red-500/20 text-red-500 hover:bg-red-500/40 transition-all"
+                >
+                  <X size={14} strokeWidth={3} />
+                </button>
+              </div>
+            </div>
+
+            {/* User Profile */}
+            <div className="flex items-center gap-3 ml-2">
+              <div className="relative">
+                <button
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="flex items-center gap-3 p-1 pr-3 rounded-full bg-white/5 hover:bg-white/10 transition-all border border-white/10 group"
+                >
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full border-2 border-blue-500/50 overflow-hidden shadow-lg group-hover:border-blue-400 transition-all">
+                      {systemOwnerPhoto ? (
+                        <img src={systemOwnerPhoto} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-slate-800 flex items-center justify-center text-white">
+                          <User size={20} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#0a0f1d] rounded-full shadow-sm"></div>
+                  </div>
+                  <div className="hidden lg:flex flex-col items-start leading-none">
+                    <span className="text-[11px] font-black text-white tracking-wide uppercase">
+                      {systemOwnerName}
+                    </span>
+                    <span className="text-[8px] font-bold text-emerald-400 uppercase mt-0.5">
+                      ON-LINE
+                    </span>
+                  </div>
+                  <ChevronDown size={14} className="text-white/40 group-hover:text-white transition-colors" />
+                </button>
+
+                {/* Dropdown Menu Simplificado */}
+                <AnimatePresence>
+                  {showMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute right-0 mt-2 w-56 bg-slate-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-[60]"
+                    >
+                      <div className="px-4 py-3 border-b border-white/5 bg-white/5">
+                        <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Nível de Acesso</p>
+                        <p className="text-xs font-black text-blue-400 mt-0.5">{systemOwnerCargo}</p>
+                      </div>
+                      <button onClick={() => { setShowPasswordModal(true); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-bold text-white/70 hover:bg-white/5 hover:text-white transition-all text-left">
+                        <Settings size={14} /> Alterar Palavra-passe
+                      </button>
+                      <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-bold text-red-400 hover:bg-red-500/10 transition-all text-left">
+                        <LogOut size={14} /> Terminar Sessão
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Notification Badge */}
+              <div className="relative">
+                <button className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/10 text-white/70 hover:text-white relative">
+                  <Bell size={20} />
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse"></span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Section: Separator and Title */}
-        <div className="w-full px-2 sm:px-4 md:px-6 pb-1 pt-0.5 border-t border-white/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {showBack && onBack && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onBack();
-                  }}
-                  className="bg-white/10 hover:bg-white/20 active:scale-95 px-3.5 py-1 rounded-full flex items-center gap-2 font-black shadow-lg transition-all cursor-pointer relative z-10 select-none border-2 border-white text-white"
-                  style={{ borderColor: "#FFFFFF", color: "#FFFFFF" }}
-                  title="Voltar"
-                >
-                  <ArrowLeft size={16} strokeWidth={3} className="text-white" />
-                  <span className="text-[9px] md:text-[11px] font-black tracking-widest text-white">
-                    Voltar
-                  </span>
-                </button>
-              )}
-
-              <h2
-                className="text-[9px] md:text-[12px] lg:text-base font-black tracking-widest leading-none text-white"
-                style={{ ...textShadowStyle, color: "#FFFFFF" }}
-              >
-                {tc(title || "Menu Principal")}
+        {/* Barra Inferior do Cabeçalho */}
+        <div className="w-full px-4 py-2 bg-black/30 border-t border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-blue-500/20 rounded-lg text-blue-400">
+              <Globe size={16} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">Início /</span>
+              <h2 className="text-sm font-black text-white tracking-widest uppercase italic">
+                {title || "RECEPÇÃO DE DOCUMENTOS"}
               </h2>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full shadow-[0_0_10px] transition-all duration-500 ${
-                isOnline ? "bg-[#00FF00] shadow-[#00FF00]" : "bg-red-500 shadow-red-500"
-              }`}></div>
-              <div className="flex flex-col">
-                <span
-                  className="text-white text-[7px] md:text-[8px] font-black tracking-[0.1em] leading-none"
-                  style={textShadowLight}
-                >
-                  {isOnline ? "Sistema Online" : "Modo Offline"}
-                </span>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <RefreshCcw className={`w-2 h-2 text-white/80 ${isSyncing ? "animate-spin" : ""}`} />
-                  <span className="text-[6px] text-white/90 font-bold tracking-tighter">
-                    {isSyncing ? "Sincronizando com a Nuvem..." : `Nuvem em Dia ${lastSyncTime ? `(${lastSyncTime})` : ""}`}
-                  </span>
+          {/* IA Quântica Status (Estilo Imagem) */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 rounded-xl">
+              <div className="flex flex-col items-end leading-none">
+                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">IA QUÂNTICA</span>
+                <span className="text-[7px] font-bold text-emerald-400 uppercase mt-0.5">SISTEMA ON-LINE</span>
+              </div>
+              <div className="relative w-8 h-8 flex items-center justify-center">
+                <div className="absolute inset-0 bg-indigo-500/20 rounded-full animate-ping"></div>
+                <div className="relative w-full h-full bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg border border-indigo-400/30">
+                  <Cpu size={16} className="text-white" />
                 </div>
               </div>
             </div>

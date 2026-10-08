@@ -24,6 +24,11 @@ export const DEFAULT_PLANNING_PERIOD: PeriodoPlanificacao = {
   extensaoFase2Usada: false,
   diasExtensaoTotal: 0,
   autoSubmetido: false,
+  // Cronograma de Prazos e Tramitação programado por DPEP
+  prazoSubmissaoSetorial: `${currentYear}-04-30`,
+  prazoConsolidacaoDPEP: `${currentYear}-05-15`,
+  prazoParecerTecnico: `${currentYear}-05-30`,
+  prazoAprovacaoGeral: `${currentYear}-06-15`,
 };
 
 const LOCAL_STORAGE_KEY = "sigep_periodo_planificacao";
@@ -135,12 +140,17 @@ export function isRelatorioSemestralAberto(periodo: PeriodoPlanificacao | null):
   return { aberto: true };
 }
 
-export function subscribePeriodoPlanificacao(callback: (periodo: PeriodoPlanificacao) => void): () => void {
-  const docRef = doc(db, "configuracoes", "periodo_planificacao");
+export function subscribePeriodoPlanificacao(callback: (periodo: PeriodoPlanificacao) => void, departamentoId?: string): () => void {
+  const docPath = departamentoId 
+    ? `configuracoes/periodo_planificacao_${departamentoId.toLowerCase().replace(/\s+/g, "_")}`
+    : "configuracoes/periodo_planificacao";
+  
+  const docRef = doc(db, docPath.split("/")[0], docPath.split("/")[1]);
 
   // Initial local storage read
   try {
-    const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const localKey = departamentoId ? `${LOCAL_STORAGE_KEY}_${departamentoId}` : LOCAL_STORAGE_KEY;
+    const local = localStorage.getItem(localKey);
     if (local) {
       callback({ ...DEFAULT_PLANNING_PERIOD, ...JSON.parse(local) });
     } else {
@@ -157,11 +167,25 @@ export function subscribePeriodoPlanificacao(callback: (periodo: PeriodoPlanific
         const data = snapshot.data() as PeriodoPlanificacao;
         const merged = { ...DEFAULT_PLANNING_PERIOD, ...data, id: snapshot.id };
         try {
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+          const localKey = departamentoId ? `${LOCAL_STORAGE_KEY}_${departamentoId}` : LOCAL_STORAGE_KEY;
+          localStorage.setItem(localKey, JSON.stringify(merged));
         } catch (_) {}
         callback(merged);
       } else {
-        callback(DEFAULT_PLANNING_PERIOD);
+        // Se não existir um específico para o departamento, tenta o global se estivermos buscando um específico
+        if (departamentoId) {
+          const globalRef = doc(db, "configuracoes", "periodo_planificacao");
+          onSnapshot(globalRef, (globalSnap) => {
+             if (globalSnap.exists()) {
+               const gData = globalSnap.data() as PeriodoPlanificacao;
+               callback({ ...DEFAULT_PLANNING_PERIOD, ...gData, id: globalSnap.id });
+             } else {
+               callback(DEFAULT_PLANNING_PERIOD);
+             }
+          });
+        } else {
+          callback(DEFAULT_PLANNING_PERIOD);
+        }
       }
     },
     (error) => {

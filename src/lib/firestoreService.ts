@@ -192,8 +192,16 @@ export function subscribeToDocument<T>(
             const docData = { ...snapshot.data(), id: snapshot.id } as T;
             callback(docData);
             try {
-              localStorage.setItem(`sigep_doc_${collectionName}_${docId}`, safeJSONStringify(docData));
-            } catch (_) {}
+              const serialized = safeJSONStringify(docData);
+              localStorage.setItem(`sigep_doc_${collectionName}_${docId}`, serialized);
+            } catch (e: any) {
+              if (e.name === "QuotaExceededError" || e.code === 22 || e.code === 1014) {
+                try {
+                  const shrunk = shrinkDataForLocalStorage([docData])[0];
+                  localStorage.setItem(`sigep_doc_${collectionName}_${docId}`, safeJSONStringify(shrunk));
+                } catch (_) {}
+              }
+            }
           } else {
             const localItems = getLocalData(collectionName);
             const found = localItems.find((it: any) => it.id === docId);
@@ -308,12 +316,55 @@ function getLocalData(collectionName: string): any[] {
   }
 }
 
+function shrinkDataForLocalStorage(data: any[]): any[] {
+  return data.map((item) => {
+    if (!item || typeof item !== "object") return item;
+    const newItem = { ...item };
+    const largeFields = ["logo", "photo", "foto", "imagem", "avatar", "content", "fileData", "base64", "ownerPhoto", "systemLogo"];
+    
+    let changed = false;
+    largeFields.forEach((field) => {
+      if (newItem[field] && typeof newItem[field] === "string" && newItem[field].length > 5000) {
+        newItem[field] = null; // Remove o campo pesado para economizar espaço
+        changed = true;
+      }
+    });
+    return newItem;
+  });
+}
+
 function saveLocalData(collectionName: string, data: any[]) {
   try {
     const key = `sigep_local_${collectionName}`;
-    localStorage.setItem(key, safeJSONStringify(data));
-  } catch (e) {
-    console.error("Erro ao salvar local storage:", e);
+    const serialized = safeJSONStringify(data);
+    localStorage.setItem(key, serialized);
+  } catch (e: any) {
+    if (e.name === "QuotaExceededError" || e.code === 22 || e.code === 1014) {
+      console.warn(`⚠️ Quota do LocalStorage excedida para ${collectionName}. Tentando salvar versão reduzida sem imagens pesadas...`);
+      try {
+        const key = `sigep_local_${collectionName}`;
+        const shrunkData = shrinkDataForLocalStorage(data);
+        localStorage.setItem(key, safeJSONStringify(shrunkData));
+        console.log(`✅ Versão reduzida de ${collectionName} salva com sucesso.`);
+      } catch (innerErr) {
+        console.error(`❌ Falha crítica ao salvar dados locais de ${collectionName} mesmo em versão reduzida:`, innerErr);
+        // Se ainda falhar, tenta limpar caches antigos de outras coleções para abrir espaço
+        try {
+           const keysToRemove = [];
+           for (let i = 0; i < localStorage.length; i++) {
+             const k = localStorage.key(i);
+             if (k && k.startsWith("sigep_local_") && k !== `sigep_local_${collectionName}`) {
+               keysToRemove.push(k);
+             }
+           }
+           // Remove metade das outras coleções para abrir espaço (estratégia de emergência)
+           keysToRemove.slice(0, Math.ceil(keysToRemove.length / 2)).forEach(k => localStorage.removeItem(k));
+           localStorage.setItem(`sigep_local_${collectionName}`, safeJSONStringify(shrinkDataForLocalStorage(data)));
+        } catch (_) {}
+      }
+    } else {
+      console.error("Erro ao salvar local storage:", e);
+    }
   }
 }
 

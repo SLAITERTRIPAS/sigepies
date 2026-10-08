@@ -68,7 +68,7 @@ export const ActivityTableHeader = React.memo(function ActivityTableHeader({
         </th>
         <th
           className="p-1 border-2 border-slate-950 font-black tracking-widest text-[10.5px]"
-          colSpan={5}
+          colSpan={6}
         >
           VII. RUBRICAS E NECESSIDADES
         </th>
@@ -175,7 +175,7 @@ export const ActivityTableHeader = React.memo(function ActivityTableHeader({
 
         {/* VII. RUBRICAS E NECESSIDADES */}
         <th
-          className="p-1 border-2 border-slate-950 text-[9px] font-black w-28"
+          className="p-1 border-2 border-slate-950 text-[9px] font-black w-24"
           rowSpan={1}
         >
           Rúbrica
@@ -185,6 +185,12 @@ export const ActivityTableHeader = React.memo(function ActivityTableHeader({
           rowSpan={1}
         >
           Necessidade
+        </th>
+        <th
+          className="p-1 border-2 border-slate-950 text-[9px] font-black w-28"
+          rowSpan={1}
+        >
+          nome do produto
         </th>
         <th
           className="p-1 border-2 border-slate-950 text-[9px] font-black w-10 text-center"

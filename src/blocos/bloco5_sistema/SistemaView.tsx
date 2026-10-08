@@ -46,6 +46,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import SigepLogo from "../../components/SigepLogo";
+import { getActiveInstituicao } from "../../lib/instituicaoEstruturaService";
 import { IntelligentDiagnosticsView } from "./IntelligentDiagnosticsView";
 import SobreSistemaView from "./SobreSistemaView";
 import BiografiaView from "./BiografiaView";
@@ -87,6 +88,7 @@ import {
 import { isProgrammerData, filterDeleted } from "../../lib/utils";
 import { EstruturaExplorer } from "./EstruturaExplorer";
 import CaixaMensagensView from "./CaixaMensagensView";
+import { SystemAlertsAdmin } from "../../components/SystemAlertsAdmin";
 
 import SearchableSelect from "../../components/ui/SearchableSelect";
 import { exportFullBackup, restoreFullBackup } from "../../lib/backupService";
@@ -139,9 +141,26 @@ export default function SistemaView({
   };
 
   const isGlobalAdmin = isSuperBossUser(user);
-
   const isInstitutionalAdmin = isInstitutionalAdminUser(user);
 
+  const [activeInstData, setActiveInstData] = useState<any>(null);
+
+  useEffect(() => {
+    const handleInstChange = () => {
+      setActiveInstData(getActiveInstituicao());
+    };
+    handleInstChange();
+    window.addEventListener("instituicao_changed", handleInstChange);
+    window.addEventListener("instituicao_updated", handleInstChange);
+    window.addEventListener("sigep_estrutura_updated", handleInstChange);
+    return () => {
+      window.removeEventListener("instituicao_changed", handleInstChange);
+      window.removeEventListener("instituicao_updated", handleInstChange);
+      window.removeEventListener("sigep_estrutura_updated", handleInstChange);
+    };
+  }, []);
+
+  const [isRevealed, setIsRevealed] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeItem, setActiveItem] = useState(
@@ -151,13 +170,21 @@ export default function SistemaView({
       ? "Gestão das Instituições"
       : "Sobre o Sistema"
   );
+
+  useEffect(() => {
+    // Reset revealed state if we exit and re-enter? 
+    // Usually "ao entrar" means when the component mounts.
+  }, []);
+
   const [expandedGroups, setExpandedGroups] = useState<string[]>(["Parte Teórica"]);
   const [registrationFormType, setRegistrationFormType] = useState<string | null>(null);
   const [pendingInstituicaoId, setPendingInstituicaoId] = useState<string | null>(null);
+  const [activeItemClickCount, setActiveItemClickCount] = useState<number>(0);
 
   useEffect(() => {
     if (initialActiveItem && initialActiveItem !== "Sistema") {
       setActiveItem(initialActiveItem);
+      setActiveItemClickCount((prev) => prev + 1);
     }
   }, [initialActiveItem]);
 
@@ -707,6 +734,7 @@ export default function SistemaView({
     { title: "Base de Dados", icon: Database, hidden: isGlobalAdmin ? false : !canManageUsers },
     { title: "Gestão das Instituições", icon: Building, hidden: isGlobalAdmin ? false : !canManageUsers },
     { title: "Conformidade Normativa", icon: ShieldCheck },
+    { title: "Alertas do Sistema", icon: Bell },
     { title: "Monitorização de Sistema", icon: AlertOctagon, hidden: isGlobalAdmin ? false : !canManageUsers },
     { title: "Feriados e Alertas", icon: Bell, hidden: !isGlobalAdmin },
     { title: "Relatórios", icon: FileText },
@@ -1315,9 +1343,13 @@ export default function SistemaView({
           return (
             <div className="max-w-5xl mx-auto pt-8">
               <RegistarFornecedorForm
-                onCancel={() => setRegistrationFormType(null)}
+                onCancel={() => {
+                  setRegistrationFormType(null);
+                  setActiveItem("Gestão de Fornecedores");
+                }}
                 onSubmit={() => {
                   setRegistrationFormType(null);
+                  setActiveItem("Gestão de Fornecedores");
                   onShowAlert("Fornecedor registado com sucesso!");
                 }}
                 user={user}
@@ -1335,6 +1367,7 @@ export default function SistemaView({
         if (prevItem.includes("Património")) contextHint = "material";
         if (prevItem.includes("Graduados")) contextHint = "graduado";
         if (prevItem.includes("Estrutura")) contextHint = "espaco";
+        if (prevItem.includes("Fornecedor") || prevItem.includes("UGEA")) contextHint = "fornecedor";
 
         return (
           <UniversalRegistrationPicker 
@@ -1364,6 +1397,7 @@ export default function SistemaView({
       case "Gestão das Instituições":
         return (
           <EstruturaExplorer
+            key={`estrutura_explorer_${activeItem}_${activeItemClickCount}`}
             loggedUser={user}
             initialTab={activeItem === "Estrutura Geral da Instituição" ? "estrutura" : "instituicoes"}
             onNavigateToWorkspace={onNavigateToWorkspace}
@@ -1386,8 +1420,9 @@ export default function SistemaView({
         return (
           <SystemLogsView />
         );
+      case "Alertas do Sistema":
       case "Feriados e Alertas":
-        return <HolidaysAlertsManagementView user={user} />;
+        return <SystemAlertsAdmin user={user} />;
       case "Biografia do Proprietário":
         return (
           <BiografiaView
@@ -2118,6 +2153,39 @@ export default function SistemaView({
     }
   };
 
+  if (!isRevealed && isGlobalAdmin) {
+    return (
+      <div className="flex-1 w-full bg-[#000033] flex flex-col items-center justify-center p-8 text-white animate-in fade-in duration-700">
+        <button 
+          onClick={() => setIsRevealed(true)}
+          className="group flex flex-col items-center gap-6 cursor-pointer outline-none"
+        >
+          <div className="w-24 h-24 mb-4 transform group-hover:scale-110 transition-transform duration-500">
+            <SigepLogo 
+              size="xl" 
+              showText={false} 
+              animated 
+              instituicaoId={activeInstData?.id}
+              instituicaoData={activeInstData}
+            />
+          </div>
+          <h1 className="text-3xl md:text-5xl font-black tracking-[0.3em] text-center uppercase transition-all group-hover:text-amber-400" style={{ textShadow: "0 0 20px rgba(0,0,0,0.5)" }}>
+            Painel do Administrador Geral
+          </h1>
+          <div className="h-1 w-24 bg-amber-400 group-hover:w-80 transition-all duration-700 ease-out shadow-[0_0_15px_rgba(251,191,36,0.5)]"></div>
+          <div className="flex flex-col items-center gap-2 mt-4">
+             <p className="text-[10px] font-black tracking-[0.6em] text-slate-400 uppercase animate-pulse">
+               Clique para Desbloquear Informações
+             </p>
+             <div className="text-[8px] font-mono text-blue-400/50 uppercase tracking-widest mt-2">
+               Sistema de Gestão Integrada &bull; Acesso Restrito
+             </div>
+          </div>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 w-full bg-[#f8f9fa] flex flex-col font-sans relative overflow-hidden">
       <div className="flex-grow flex overflow-hidden">
@@ -2213,6 +2281,7 @@ export default function SistemaView({
                           handleOpenRegistration(null);
                         } else {
                           setActiveItem(item.title);
+                          setActiveItemClickCount((prev) => prev + 1);
                         }
                       }}
                       title={item.title}

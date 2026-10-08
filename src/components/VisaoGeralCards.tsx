@@ -37,7 +37,7 @@ export default function VisaoGeralCards({
     if (upper === "CORPO DISCENTE") target = "Gestão Académica";
     if (upper === "GESTÃO DE EXPEDIENTE") target = "Gestão de Expediente";
     if (upper === "GESTÃO DE PRODUTOS E PREÇOS") target = "Gestão de Produtos e Preços";
-    if (upper === "GESTÃO DE FORNECEDORES") target = "Gestão de Fornecedores";
+    if (upper === "GESTÃO DE FORNECEDORES" || upper === "GESTÃO DE FORNECEDOR" || upper === "FORNECEDORES" || upper === "FORNECEDOR") target = "Gestão de Fornecedores";
     if (upper === "PLANO DE AQUISIÇÃO") target = "Plano de Aquisição";
     if (upper === "PLANO DE CONTRATAÇÃO") target = "Plano de Contratação";
 
@@ -51,7 +51,7 @@ export default function VisaoGeralCards({
         target,
       };
     }
-    if (upper.includes("FORNECEDORES")) {
+    if (upper.includes("FORNECEDORES") || upper.includes("FORNECEDOR")) {
       return {
         title: cardTitle,
         sub: "Registo e Gestão Oficial de Fornecedores",

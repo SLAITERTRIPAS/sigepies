@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   BarChart3, 
@@ -10,10 +10,16 @@ import {
   Activity,
   CalendarCheck,
   Cpu,
-  Sparkles
+  Sparkles,
+  Calendar,
+  Edit2,
+  Check,
+  X,
+  AlertCircle
 } from 'lucide-react';
-import { MatrixActivity } from '../types';
+import { MatrixActivity, PeriodoPlanificacao } from '../types';
 import { isSuperBossUser } from '../lib/auth';
+import { subscribePeriodoPlanificacao, savePeriodoPlanificacao } from '../lib/planningPeriodService';
 
 interface DPEPDashboardProps {
   activities: MatrixActivity[];
@@ -34,6 +40,87 @@ export const DPEPDashboard: React.FC<DPEPDashboardProps> = ({
   isChefeDPEP,
   isPlanificacao
 }) => {
+  const [periodoPlanificacao, setPeriodoPlanificacao] = useState<PeriodoPlanificacao | null>(null);
+  const [showConfigPrazosModal, setShowConfigPrazosModal] = useState(false);
+  const [prazosForm, setPrazosForm] = useState({
+    prazoSubmissaoSetorial: "",
+    prazoConsolidacaoDPEP: "",
+    prazoParecerTecnico: "",
+    prazoAprovacaoGeral: "",
+  });
+  const [isSavingPrazos, setIsSavingPrazos] = useState(false);
+  const [savePrazosMsg, setSavePrazosMsg] = useState("");
+
+  useEffect(() => {
+    // Filtragem por DPEP do usuário logado conforme solicitado
+    const departamentoUsuario = user?.departamento || "";
+    const isUserFromDPEP = departamentoUsuario.toUpperCase().includes("DPEP") || 
+                           departamentoUsuario.toUpperCase().includes("PLANIFICA");
+    
+    const unsub = subscribePeriodoPlanificacao((periodo) => {
+      setPeriodoPlanificacao(periodo);
+      setPrazosForm({
+        prazoSubmissaoSetorial: periodo.prazoSubmissaoSetorial || periodo.dataFimPlanificacao || `${selectedYear}-04-30`,
+        prazoConsolidacaoDPEP: periodo.prazoConsolidacaoDPEP || `${selectedYear}-05-15`,
+        prazoParecerTecnico: periodo.prazoParecerTecnico || `${selectedYear}-05-30`,
+        prazoAprovacaoGeral: periodo.prazoAprovacaoGeral || `${selectedYear}-06-15`,
+      });
+    }, isUserFromDPEP ? departamentoUsuario : undefined);
+    return () => unsub();
+  }, [selectedYear, user?.departamento]);
+
+  const canManagePrazosDPEP = isChefeDPEP || isPlanificacao || isSuperBossUser(user);
+
+  const formatarDataPrazo = (dateStr?: string, fallbackDefault = "A definir"): string => {
+    if (!dateStr) return fallbackDefault;
+    try {
+      if (dateStr.includes(" de ")) return dateStr;
+      const parts = dateStr.split("-");
+      if (parts.length === 3) {
+        const d = parseInt(parts[2], 10);
+        const m = parseInt(parts[1], 10);
+        const meses = [
+          "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+          "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ];
+        if (m >= 1 && m <= 12) {
+          return `${d} de ${meses[m - 1]}`;
+        }
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const handleSavePrazosDPEP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingPrazos(true);
+    try {
+      await savePeriodoPlanificacao(
+        {
+          ...periodoPlanificacao,
+          prazoSubmissaoSetorial: prazosForm.prazoSubmissaoSetorial,
+          prazoConsolidacaoDPEP: prazosForm.prazoConsolidacaoDPEP,
+          prazoParecerTecnico: prazosForm.prazoParecerTecnico,
+          prazoAprovacaoGeral: prazosForm.prazoAprovacaoGeral,
+          definidoPor: user?.nome || user?.name || "DPEP / Repartição de Planificação",
+          setorDefinidor: "DPEP / Repartição de Planificação",
+        },
+        user
+      );
+      setSavePrazosMsg("Cronograma de prazos programado com sucesso por DPEP!");
+      setTimeout(() => {
+        setSavePrazosMsg("");
+        setShowConfigPrazosModal(false);
+      }, 1500);
+    } catch (err) {
+      console.error("Erro ao guardar prazos DPEP:", err);
+      alert("Erro ao guardar prazos. Tente novamente.");
+    } finally {
+      setIsSavingPrazos(false);
+    }
+  };
   // Check if user is authorized to see the PESOE badge/title (Chefe do DPEP e Repartição de Planificação)
   const isAuthorizedForPESOE = useMemo(() => {
     if (isChefeDPEP || isPlanificacao) return true;
@@ -256,23 +343,41 @@ export const DPEPDashboard: React.FC<DPEPDashboardProps> = ({
         variants={itemVariants}
         className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm"
       >
-        <div className="flex items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className={`p-3 rounded-2xl ${stats.totalActivities > 0 ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-400"}`}>
               <BarChart3 size={22} />
             </div>
             <div>
-              <h4 className="text-base font-black text-slate-900 tracking-tight">Cronograma de Prazos e Tramitação</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="text-base font-black text-slate-900 tracking-tight">Cronograma de Prazos e Tramitação</h4>
+                <span className="text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-900 px-2 py-0.5 rounded-md border border-blue-200">
+                  Programado por DPEP
+                </span>
+              </div>
               <p className="text-xs text-slate-400 font-bold">
                 {stats.totalActivities > 0
-                  ? `Fases de Consolidação e Aprovação do Plano Anual (${selectedYear}) • Em Funcionamento`
-                  : `Fases de Consolidação e Aprovação do Plano Anual (${selectedYear}) • Aguardando Início (Zerado)`}
+                  ? `Fases de Consolidação e Aprovação do Plano Anual (${selectedYear}) • Datas Oficiais DPEP em vigor`
+                  : `Fases de Consolidação e Aprovação do Plano Anual (${selectedYear}) • Datas Oficiais DPEP (Aguardando Atividades)`}
               </p>
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200/60">
-            <CalendarCheck size={16} className={stats.totalActivities > 0 ? "text-emerald-600" : "text-slate-400"} />
-            <span>{stats.totalActivities > 0 ? "Cronograma em Funcionamento" : "Cronograma Zerado (Inativo)"}</span>
+          <div className="flex items-center gap-2">
+            {canManagePrazosDPEP && (
+              <button
+                type="button"
+                onClick={() => setShowConfigPrazosModal(true)}
+                className="flex items-center gap-1.5 text-xs font-black text-blue-900 bg-blue-50 hover:bg-blue-100 px-3.5 py-2 rounded-xl border border-blue-200/80 transition-all shadow-xs cursor-pointer"
+                title="Programar e atualizar as datas das etapas de tramitação no DPEP"
+              >
+                <Edit2 size={14} className="text-blue-700" />
+                <span>Programar Prazos (DPEP)</span>
+              </button>
+            )}
+            <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/60">
+              <CalendarCheck size={16} className={stats.totalActivities > 0 ? "text-emerald-600" : "text-slate-400"} />
+              <span>{stats.totalActivities > 0 ? "Cronograma em Execução" : "Aguardando Início"}</span>
+            </div>
           </div>
         </div>
 
@@ -344,26 +449,44 @@ export const DPEPDashboard: React.FC<DPEPDashboardProps> = ({
                 ? "bg-emerald-500"
                 : "bg-amber-500";
 
+            // Datas Oficiais Programadas pelo DPEP
+            const dataSubmissao = formatarDataPrazo(
+              periodoPlanificacao?.prazoSubmissaoSetorial || periodoPlanificacao?.dataFimPlanificacao,
+              `30 de Abril de ${selectedYear}`
+            );
+            const dataConsolidacao = formatarDataPrazo(
+              periodoPlanificacao?.prazoConsolidacaoDPEP,
+              `15 de Maio de ${selectedYear}`
+            );
+            const dataParecer = formatarDataPrazo(
+              periodoPlanificacao?.prazoParecerTecnico,
+              `30 de Maio de ${selectedYear}`
+            );
+            const dataAprovacao = formatarDataPrazo(
+              periodoPlanificacao?.prazoAprovacaoGeral,
+              `15 de Junho de ${selectedYear}`
+            );
+
             const steps = [
               { 
                 label: "Submissão Setorial", 
-                date: "30 de Outubro", 
+                date: dataSubmissao, 
                 progress: submissaoPercent, 
                 color: submissaoColor,
                 status: submissaoStatus,
-                desc: hasActivities ? `${stats.submetidas} de ${stats.totalActivities} atividades submetidas` : "Recepção de propostas setoriais"
+                desc: hasActivities ? `${stats.submetidas} de ${stats.totalActivities} atividades submetidas` : "Recepção de propostas setoriais (DPEP)"
               },
               { 
                 label: "Consolidação DPEP", 
-                date: "15 de Novembro", 
+                date: dataConsolidacao, 
                 progress: consolidacaoPercent, 
                 color: consolidacaoColor,
                 status: consolidacaoStatus,
-                desc: hasActivities ? "Harmonização de atividades e rubricas" : "Aguardando submissões setoriais"
+                desc: hasActivities ? "Harmonização de atividades e rubricas" : "Aguardando submissões setoriais (DPEP)"
               },
               { 
                 label: "Parecer Técnico", 
-                date: "30 de Novembro", 
+                date: dataParecer, 
                 progress: parecerPercent, 
                 color: parecerColor,
                 status: parecerStatus,
@@ -371,7 +494,7 @@ export const DPEPDashboard: React.FC<DPEPDashboardProps> = ({
               },
               { 
                 label: "Aprovação Geral", 
-                date: "15 de Dezembro", 
+                date: dataAprovacao, 
                 progress: aprovacaoPercent, 
                 color: aprovacaoColor,
                 status: aprovacaoStatus,
@@ -380,7 +503,7 @@ export const DPEPDashboard: React.FC<DPEPDashboardProps> = ({
             ];
 
             return steps.map((step, i) => (
-              <div key={i} className="p-5 rounded-2xl bg-slate-50/70 border border-slate-100 space-y-3">
+              <div key={i} className="p-5 rounded-2xl bg-slate-50/70 border border-slate-100 space-y-3 shadow-2xs">
                 <div className="flex justify-between items-center text-xs font-black tracking-wider">
                   <span className="text-slate-800">{step.label}</span>
                   <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${
@@ -397,13 +520,120 @@ export const DPEPDashboard: React.FC<DPEPDashboardProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-[11px] font-black text-slate-700">
                   <span className="text-[10px] text-slate-400">{step.progress}%</span>
-                  <span>Prazo: {step.date}</span>
+                  <span className="text-blue-900 bg-blue-50/80 px-2 py-0.5 rounded-md border border-blue-100">
+                    Prazo DPEP: <strong>{step.date}</strong>
+                  </span>
                 </div>
               </div>
             ));
           })()}
         </div>
       </motion.div>
+
+      {/* Modal para Programação de Prazos e Tramitação por DPEP */}
+      {showConfigPrazosModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-blue-50 text-blue-900 rounded-xl">
+                  <Calendar size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Programar Prazos e Tramitação (DPEP)</h3>
+                  <p className="text-xs text-slate-500 font-medium">Defina as datas oficiais para as 4 etapas de consolidação anual</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConfigPrazosModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {savePrazosMsg && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-black rounded-xl flex items-center gap-2">
+                <Check size={16} className="text-emerald-600" />
+                {savePrazosMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSavePrazosDPEP} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-700 block">
+                  1. Submissão Setorial (Prazo Final de Envio dos Setores)
+                </label>
+                <input
+                  type="date"
+                  value={prazosForm.prazoSubmissaoSetorial}
+                  onChange={(e) => setPrazosForm((prev) => ({ ...prev, prazoSubmissaoSetorial: e.target.value }))}
+                  required
+                  className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-600 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-700 block">
+                  2. Consolidação DPEP (Harmonização Institucional)
+                </label>
+                <input
+                  type="date"
+                  value={prazosForm.prazoConsolidacaoDPEP}
+                  onChange={(e) => setPrazosForm((prev) => ({ ...prev, prazoConsolidacaoDPEP: e.target.value }))}
+                  required
+                  className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-600 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-700 block">
+                  3. Parecer Técnico (Validação de Conformidade)
+                </label>
+                <input
+                  type="date"
+                  value={prazosForm.prazoParecerTecnico}
+                  onChange={(e) => setPrazosForm((prev) => ({ ...prev, prazoParecerTecnico: e.target.value }))}
+                  required
+                  className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-600 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-700 block">
+                  4. Aprovação Geral (Conselho de Direção / Homologação)
+                </label>
+                <input
+                  type="date"
+                  value={prazosForm.prazoAprovacaoGeral}
+                  onChange={(e) => setPrazosForm((prev) => ({ ...prev, prazoAprovacaoGeral: e.target.value }))}
+                  required
+                  className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-600 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowConfigPrazosModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPrazos}
+                  className="flex items-center gap-1.5 px-5 py-2 text-xs font-black text-white bg-blue-900 hover:bg-blue-800 rounded-xl transition shadow-md cursor-pointer disabled:opacity-60"
+                >
+                  <Check size={16} />
+                  <span>{isSavingPrazos ? "A guardar..." : "Guardar Prazos (DPEP)"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

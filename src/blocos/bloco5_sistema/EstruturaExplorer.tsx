@@ -33,6 +33,7 @@ import { firestoreService, fetchCollection } from "../../lib/firestoreService";
 import { isSuperBossUser, countInstitutionalAdmins } from "../../lib/auth";
 import { PROVINCIAS } from "../../constants/formOptions";
 import { extractDominantColorsFromImage, cn } from "../../lib/utils";
+import { removeImageBackground, optimizeImageForFirestore } from "../../lib/imageUtils";
 import { 
   notifyEstruturaUpdated,
   MODELOS_ORGANOGRAMA,
@@ -48,6 +49,7 @@ import EditSectorModal from "../../components/EditSectorModal";
 import SectorMenuConfigModal from "../../components/SectorMenuConfigModal";
 import RelatorioTecnicoModal from "../../components/RelatorioTecnicoModal";
 import OrganogramaModal from "../../components/OrganogramaModal";
+import InstitutionalProfileModal from "../../components/modals/InstitutionalProfileModal";
 import { Sliders, GitFork } from "lucide-react";
 import { getSystemLogo } from "../../lib/logoService";
 
@@ -110,9 +112,9 @@ export const EstruturaExplorer = ({
       Boolean(loggedUser?.instituicaoId && String(loggedUser?.role || "").toLowerCase().includes("admin"))
     );
 
-  // 2. Seleção de aba ativa (Permite ao Administrador Geral navegar diretamente pela Estrutura Geral da Instituição)
+  // 2. Seleção de aba ativa (Padrão: lista de instituições)
   const [activeTab, setActiveTab] = useState<"instituicoes" | "estrutura">(
-    initialTab || (isGlobalAdmin ? "instituicoes" : "estrutura")
+    initialTab || "instituicoes"
   );
 
   useEffect(() => {
@@ -148,6 +150,10 @@ export const EstruturaExplorer = ({
   const [instPrimaryColor, setInstPrimaryColor] = useState("#050b38");
   const [instSecondaryColor, setInstSecondaryColor] = useState("#0d1b54");
   const [instAccentColor, setInstAccentColor] = useState("#FFB800");
+  const [instHeaderColor, setInstHeaderColor] = useState("");
+  const [instSidebarColor, setInstSidebarColor] = useState("");
+  const [instFooterColor, setInstFooterColor] = useState("");
+  const [logoPalette, setLogoPalette] = useState<string[]>([]);
   const [isExtractingColors, setIsExtractingColors] = useState(false);
   const [instTipoActividades, setInstTipoActividades] = useState("");
   const [instOrganograma, setInstOrganograma] = useState("");
@@ -231,6 +237,8 @@ export const EstruturaExplorer = ({
   const [showOrganogramaModal, setShowOrganogramaModal] = useState(false);
   const [organogramaInitialType, setOrganogramaInitialType] = useState<"instituicao" | "colaboradores">("instituicao");
   const [organogramaTargetInst, setOrganogramaTargetInst] = useState<any | null>(null);
+  const [showInstProfileModal, setShowInstProfileModal] = useState(false);
+  const [instToEditProfile, setInstToEditProfile] = useState<any | null>(null);
 
   // Base Unificada de Alocação de Colaboradores (Colaboradores do Firestore + Utilizadores de Autenticação)
   const allocationBaseUsers = useMemo(() => {
@@ -1052,14 +1060,23 @@ export const EstruturaExplorer = ({
 
   // Handlers para Instituição
   const processLogoColors = async (logoDataUrl: string) => {
-    setInstLogo(logoDataUrl);
-    if (logoDataUrl) {
+    // Remover fundo do logotipo conforme solicitado
+    const cleanLogo = await removeImageBackground(logoDataUrl);
+    setInstLogo(cleanLogo);
+    
+    if (cleanLogo) {
       setIsExtractingColors(true);
       try {
-        const colors = await extractDominantColorsFromImage(logoDataUrl);
+        const colors = await extractDominantColorsFromImage(cleanLogo);
         setInstPrimaryColor(colors.primaryColor);
         setInstSecondaryColor(colors.secondaryColor);
         setInstAccentColor(colors.accentColor);
+        setLogoPalette(colors.allColors || []);
+        
+        // Sugestão inicial baseada na extração
+        if (!instHeaderColor) setInstHeaderColor(colors.primaryColor);
+        if (!instSidebarColor) setInstSidebarColor(colors.secondaryColor);
+        if (!instFooterColor) setInstFooterColor(colors.primaryColor);
       } catch (err) {
         console.warn("Erro ao extrair cores do logotipo:", err);
       } finally {
@@ -1124,15 +1141,34 @@ export const EstruturaExplorer = ({
     }
     setIsSavingInst(true);
     try {
+      // Otimização de imagens antes de salvar
+      let optimizedLogo = instLogo;
+      if (optimizedLogo && optimizedLogo.length > 50000) {
+        try {
+          optimizedLogo = await optimizeImageForFirestore(optimizedLogo, 300, 300, 100 * 1024);
+        } catch (_) {}
+      }
+
+      let optimizedBg = instBackgroundImage;
+      if (optimizedBg && optimizedBg.length > 100000) {
+        try {
+          optimizedBg = await optimizeImageForFirestore(optimizedBg, 800, 450, 150 * 1024);
+        } catch (_) {}
+      }
+
       const payload = {
         nome: instNome.trim(),
         abreviatura: instAbreviatura.trim(),
         sigla: instAbreviatura.trim(),
-        logo: instLogo,
-        backgroundImage: instBackgroundImage,
+        logo: optimizedLogo,
+        backgroundImage: optimizedBg,
         primaryColor: instPrimaryColor || "#050b38",
         secondaryColor: instSecondaryColor || "#0d1b54",
         accentColor: instAccentColor || "#FFB800",
+        headerColor: instHeaderColor || instPrimaryColor || "#050b38",
+        sidebarColor: instSidebarColor || instSecondaryColor || "#0d1b54",
+        footerColor: instFooterColor || instPrimaryColor || "#050b38",
+        logoPalette: logoPalette,
         tipoInstituicao: selectedTipoInstituicao,
         categoriaEspecifica: instCategoriaEspecifica,
         documentosNormativosConfigurados: getTipoInstituicaoConfig(selectedTipoInstituicao).documentosNormativosPadrao,
@@ -1940,8 +1976,8 @@ export const EstruturaExplorer = ({
 
   return (
     <div className="space-y-6">
-      {/* Barra de Retorno/Breadcrumb para estrutura aninhada se for Admin Global na visualização de estrutura */}
-      {isGlobalAdmin && activeTab === "estrutura" && (
+      {/* Barra de Retorno/Breadcrumb para estrutura aninhada na visualização de estrutura */}
+      {activeTab === "estrutura" && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white p-4 rounded-2xl shadow-sm">
           <button
             type="button"
@@ -2261,6 +2297,17 @@ export const EstruturaExplorer = ({
                       <button
                         type="button"
                         onClick={() => {
+                          setInstToEditProfile(inst);
+                          setShowInstProfileModal(true);
+                        }}
+                        className="text-xs text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 p-2 rounded-xl transition cursor-pointer border border-blue-100"
+                        title="Editar Perfil Institucional (Logotipo, Cores e Contactos)"
+                      >
+                        <User size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
                           setEditingInstId(inst.id);
                           setInstNome(inst.nome);
                           setInstAbreviatura(inst.abreviatura || inst.sigla || "");
@@ -2269,6 +2316,10 @@ export const EstruturaExplorer = ({
                           setInstPrimaryColor(inst.primaryColor || "#050b38");
                           setInstSecondaryColor(inst.secondaryColor || "#0d1b54");
                           setInstAccentColor(inst.accentColor || "#FFB800");
+                          setInstHeaderColor(inst.headerColor || "");
+                          setInstSidebarColor(inst.sidebarColor || "");
+                          setInstFooterColor(inst.footerColor || "");
+                          setLogoPalette(inst.logoPalette || []);
                           setInstTipoActividades(inst.tipoActividades || "");
                           setInstComposicao(inst.composicao || "");
                           setInstOrganograma(inst.organograma || "");
@@ -2386,11 +2437,23 @@ export const EstruturaExplorer = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    const inst = instituicoes.find((i) => i.id === selectedInstId) || ispsDefault;
+                    setInstToEditProfile(inst);
+                    setShowInstProfileModal(true);
+                  }}
+                  className="bg-white text-blue-950 hover:bg-blue-50 px-4 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 transition shadow cursor-pointer border border-slate-200"
+                >
+                  <User size={16} className="text-blue-600" />
+                  Perfil Institucional
+                </button>
+                <button
+                  type="button"
                   onClick={triggerEditCurrentInst}
                   className="bg-white text-blue-950 hover:bg-blue-50 px-4 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 transition shadow cursor-pointer"
                 >
                   <Edit size={16} className="text-blue-600" />
-                  Editar Dados da Instituição
+                  Editar Dados Técnicos
                 </button>
               </div>
             </div>
@@ -2501,22 +2564,18 @@ export const EstruturaExplorer = ({
             <div className="flex items-center gap-2 flex-wrap text-slate-600 font-semibold">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Navegação:</span>
               
-              {isGlobalAdmin && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab("instituicoes");
-                      setSelectedUnit(null);
-                    }}
-                    className="hover:text-blue-700 text-slate-700 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <Building size={13} className="text-blue-600" />
-                    <span>Instituições</span>
-                  </button>
-                  <ChevronRight size={12} className="text-slate-400" />
-                </>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("instituicoes");
+                  setSelectedUnit(null);
+                }}
+                className="hover:text-blue-700 text-slate-700 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Building size={13} className="text-blue-600" />
+                <span>Instituições</span>
+              </button>
+              <ChevronRight size={12} className="text-slate-400" />
 
               <button
                 type="button"
@@ -2551,7 +2610,7 @@ export const EstruturaExplorer = ({
                 </button>
               )}
 
-              {isGlobalAdmin && !selectedUnit && (
+              {!selectedUnit && (
                 <button
                   type="button"
                   onClick={() => setActiveTab("instituicoes")}
@@ -3407,6 +3466,17 @@ export const EstruturaExplorer = ({
           colaboradores={colaboradoresList}
           users={usersList}
           initialType={organogramaInitialType}
+        />
+      )}
+
+      {showInstProfileModal && (
+        <InstitutionalProfileModal 
+          isOpen={showInstProfileModal}
+          onClose={() => setShowInstProfileModal(false)}
+          instituicao={instToEditProfile}
+          onUpdate={() => {
+            notifyEstruturaUpdated();
+          }}
         />
       )}
     </div>

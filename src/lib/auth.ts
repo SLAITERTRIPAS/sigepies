@@ -198,6 +198,11 @@ export const isActivityFromUserSector = (activity: any, user: any): boolean => {
   const uSec = cleanAreaText(user.setor || user.reparticao || "");
   const uArea = cleanAreaText(user.areaDeAfetacao || "");
 
+  // Verificar se o criador é o próprio utilizador ou autor
+  const creatorEmail = String(activity.createdBy || activity.emailCriador || activity.autorEmail || "").toLowerCase().trim();
+  const uEmail = String(user.email || "").toLowerCase().trim();
+  if (creatorEmail && uEmail && creatorEmail === uEmail) return true;
+
   // Distinção soberana: UGEA vs DPEP vs Outros
   const isActUgea = aDept.includes("ugea") || aSec.includes("ugea") || aOrig.includes("ugea") || aDept.includes("aquisicoes") || aSec.includes("aquisicoes");
   const isUserUgea = uDept.includes("ugea") || uSec.includes("ugea") || uArea.includes("ugea") || uDept.includes("aquisicoes") || uSec.includes("aquisicoes");
@@ -211,10 +216,15 @@ export const isActivityFromUserSector = (activity: any, user: any): boolean => {
     return isActDpep === isUserDpep;
   }
 
-  // Comparação por setor / repartição / departamento
-  if (uSec && (aSec.includes(uSec) || uSec.includes(aSec) || aOrig.includes(uSec))) return true;
-  if (uDept && (aDept.includes(uDept) || uDept.includes(aDept) || aOrig.includes(uDept))) return true;
-  if (uArea && (aSec.includes(uArea) || aDept.includes(uArea) || aOrig.includes(uArea))) return true;
+  // Comparação estrita por setor / repartição do utilizador para evitar mistura de setores
+  if (uSec && (aSec === uSec || aSec.includes(uSec) || uSec.includes(aSec) || aOrig.includes(uSec))) {
+    return true;
+  }
+
+  // Se não tem setor específico, mas tem departamento exato
+  if (!uSec && uDept && (aDept === uDept || aDept.includes(uDept) || uDept.includes(aDept))) {
+    return true;
+  }
 
   return false;
 };
@@ -551,6 +561,7 @@ export const getAuthorizedActivities = (activities: any[], user: any) => {
 
       const isApprovedOrInstitucional =
         st === "institucional" ||
+        st === "planeado" ||
         st === "pendente_monitoria" ||
         st === "aprovado" ||
         st === "aprovada" ||
@@ -620,6 +631,7 @@ export const getAuthorizedActivities = (activities: any[], user: any) => {
         a.status === "planificacao" ||
         a.status === "dpep_chefe" ||
         a.status === "institucional" ||
+        a.status === "planeado" ||
         a.status === "meritos" ||
         sentToSectors.some((s) => s.includes("dpep") || s.includes("planifica")) ||
         sentTo.some((s) => s.includes("dpep") || s.includes("planifica"));

@@ -27,11 +27,9 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (id.includes("node_modules")) {
               if (id.includes("firebase")) return "vendor-firebase";
-              if (id.includes("jspdf") || id.includes("pdfjs-dist") || id.includes("html2pdf.js")) return "vendor-pdf";
-              if (id.includes("xlsx")) return "vendor-xlsx";
-              if (id.includes("recharts") || id.includes("d3")) return "vendor-charts";
-              if (id.includes("lucide-react")) return "vendor-icons";
-              if (id.includes("react") || id.includes("react-dom") || id.includes("motion")) return "vendor-react";
+              if (id.includes("jspdf") || id.includes("pdfjs-dist") || id.includes("html2pdf.js") || id.includes("xlsx")) return "vendor-docs";
+              if (id.includes("recharts") || id.includes("d3") || id.includes("lucide-react")) return "vendor-ui-libs";
+              return "vendor";
             }
           },
         },

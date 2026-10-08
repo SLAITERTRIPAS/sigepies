@@ -641,10 +641,13 @@ export default function PlanoWorkflowView({
           ? group.map((g) => g.id)
           : [activityId];
 
+      const isReprovada = approvalStatus === "reprovada" || approvalStatus === "reprovado";
+
       for (const id of groupIds) {
         await firestoreService.matrixActivities.update(id, {
-          statusAprovacao: approvalStatus,
+          statusAprovacao: isReprovada ? "reprovado" : approvalStatus,
           aprovada: approvalStatus === "aprovada",
+          status: isReprovada ? "reprovado" : act.status,
         });
       }
 
@@ -653,18 +656,98 @@ export default function PlanoWorkflowView({
           groupIds.includes(a.id)
             ? {
                 ...a,
-                statusAprovacao: approvalStatus,
+                statusAprovacao: isReprovada ? "reprovado" : approvalStatus,
                 aprovada: approvalStatus === "aprovada",
+                status: isReprovada ? "reprovado" : a.status,
               }
             : a,
         ),
       );
       onShowAlert(
-        `Actividade e todas as rubricas/necessidades associadas marcadas como: ${approvalStatus === "aprovada" ? "Aprovada" : approvalStatus}`,
+        `Actividade e todas as rubricas/necessidades associadas marcadas como: ${isReprovada ? "Reprovada" : "Aprovada"}`
       );
     } catch (err) {
       console.error(err);
       onShowAlert("Erro ao atualizar estado de aprovação.");
+    }
+  };
+
+  const performRolloverForActivities = async (actsToRollover: any[]) => {
+    if (actsToRollover.length === 0) return;
+
+    setIsLoading(true);
+    try {
+      const updatedCurrentYearList: any[] = [];
+      const createdNextYearList: any[] = [];
+
+      for (const act of actsToRollover) {
+        if (!act) continue;
+        const currentYear = Number(act.ano || selectedYear || 2026);
+        const nextYear = currentYear + 1;
+
+        // 1. Atualizar atividade do ano atual registando a recondução
+        const currentYearUpdate = {
+          status: "reconduzida",
+          statusAprovacao: "reconduzida",
+          reconduzida: true,
+          reconduzidaParaAno: nextYear,
+          dataReconducao: new Date().toISOString(),
+          observacoes: (act.observacoes ? act.observacoes + "\n" : "") + `[Reconduzida para o Plano da Instituição de ${nextYear}]`,
+          updatedAt: new Date().toISOString(),
+          direcao: "",
+          departamento: "",
+          setor: "",
+          reparticao: "",
+          unidadeOrganica: "",
+        };
+
+        await firestoreService.matrixActivities.update(act.id, currentYearUpdate);
+        updatedCurrentYearList.push({ id: act.id, update: currentYearUpdate });
+
+        // 2. Criar nova atividade para o Plano da Instituição do ano seguinte
+        const newActId = `act_rec_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        const nextYearActivity = {
+          ...act,
+          id: newActId,
+          ano: nextYear,
+          status: "planeado", // No plano da Instituição, pronta para aprovação do ano seguinte!
+          statusAprovacao: "pendente",
+          aprovada: false,
+          isPESOE: false,
+          isReconduzida: true,
+          anoOrigem: currentYear,
+          dataReconducao: new Date().toISOString(),
+          observacoes: (act.observacoes ? act.observacoes + "\n" : "") + `[Atividade Reconduzida do Plano de ${currentYear}]`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          direcao: "",
+          departamento: "",
+          setor: "",
+          reparticao: "",
+          unidadeOrganica: "",
+        };
+
+        await firestoreService.matrixActivities.add(nextYearActivity);
+        createdNextYearList.push(nextYearActivity);
+      }
+
+      setRawActivities((prev) => {
+        const updatedPrev = prev.map((item) => {
+          const match = updatedCurrentYearList.find((u) => u.id === item.id);
+          return match ? { ...item, ...match.update } : item;
+        });
+        return [...updatedPrev, ...createdNextYearList];
+      });
+
+      onShowAlert(
+        `${actsToRollover.length} actividade(s) reconduzida(s) com sucesso para o ano ${Number(selectedYear || 2026) + 1} e adicionada(s) ao Plano da Instituição pronta(s) para aprovação com o status inicial 'planeado'!`,
+        "success"
+      );
+    } catch (err: any) {
+      console.error("Erro ao reconduzir actividades:", err);
+      onShowAlert("Erro ao reconduzir actividades para o ano seguinte.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -673,29 +756,11 @@ export default function PlanoWorkflowView({
       const act = rawActivities.find((a) => a.id === activityId);
       if (!act) return;
       const group = getActivityGroup(act, rawActivities);
-      const groupIds =
-        group.map((g) => g.id).length > 0
-          ? group.map((g) => g.id)
-          : [activityId];
-
-      const currentYear = Number(act.ano || selectedYear || 2027);
-      const nextYear = currentYear + 1;
-
-      for (const id of groupIds) {
-        await firestoreService.matrixActivities.update(id, { ano: nextYear });
-      }
-
-      setRawActivities((prev) =>
-        prev.map((a) =>
-          groupIds.includes(a.id) ? { ...a, ano: nextYear } : a,
-        ),
-      );
-      onShowAlert(
-        `Actividade e toda a sua coluna, rubricas e necessidades reconduzidas com sucesso para o ano ${nextYear}!`,
-      );
+      const actsToRollover = group.length > 0 ? group : [act];
+      await performRolloverForActivities(actsToRollover);
     } catch (err) {
       console.error(err);
-      onShowAlert("Erro ao reconduzir actividade para o ano+1.");
+      onShowAlert("Erro ao reconduzir actividade para o ano seguinte.");
     }
   };
 
@@ -813,29 +878,9 @@ export default function PlanoWorkflowView({
       onShowAlert("Selecione pelo menos uma actividade.");
       return;
     }
-    try {
-      for (const id of selectedActivityIds) {
-        const act = rawActivities.find((a) => a.id === id);
-        if (!act) continue;
-        const currentYear = Number(act.ano || selectedYear || 2027);
-        const nextYear = currentYear + 1;
-        await firestoreService.matrixActivities.update(id, { ano: nextYear });
-      }
-      setRawActivities((prev) =>
-        prev.map((a) => {
-          if (!selectedActivityIds.includes(a.id)) return a;
-          const currentYear = Number(a.ano || selectedYear || 2027);
-          return { ...a, ano: currentYear + 1 };
-        }),
-      );
-      onShowAlert(
-        `${selectedActivityIds.length} actividades reconduzidas com sucesso para o ano+1!`,
-      );
-      setSelectedActivityIds([]);
-    } catch (err) {
-      console.error(err);
-      onShowAlert("Erro ao reconduzir actividades em lote para o ano+1.");
-    }
+    const actsToRollover = rawActivities.filter((a) => selectedActivityIds.includes(a.id));
+    await performRolloverForActivities(actsToRollover);
+    setSelectedActivityIds([]);
   };
 
   const handleFileConversion = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1925,6 +1970,115 @@ export default function PlanoWorkflowView({
     }
   };
 
+  const handleInitializeNextYearPlan = async () => {
+    // Permissão: Planificação, Órgão Colegial, Administrador ou Programador
+    if (
+      !isAdminOrProgrammer &&
+      selectedRoleMode !== "Planificação" &&
+      selectedRoleMode !== "Órgão Colegial" &&
+      user?.role !== "Administrador" &&
+      user?.role !== "admin"
+    ) {
+      onShowAlert("Apenas Administradores, Setor de Planificação ou Órgão Colegial têm permissão para inicializar o próximo ano letivo.");
+      return;
+    }
+
+    const currentYear = Number(selectedYear || 2026);
+    const nextYear = currentYear + 1;
+
+    const confirmInit = window.confirm(
+      `Deseja inicializar o Plano Institucional do próximo ano letivo (${nextYear}) copiando automaticamente todas as atividades reconduzidas de ${currentYear}?`
+    );
+
+    if (!confirmInit) return;
+
+    try {
+      setIsLoading(true);
+
+      // 1. Obter todas as atividades do ano atual que estejam marcadas como reconduzidas
+      const reconduzidas = rawActivities.filter((a) => {
+        const isYearMatch = Number(a.ano) === currentYear;
+        const isReconduzidaStatus =
+          a.status === "reconduzida" ||
+          a.statusAprovacao === "reconduzida" ||
+          a.reconduzida === true;
+        return isYearMatch && isReconduzidaStatus;
+      });
+
+      if (reconduzidas.length === 0) {
+        onShowAlert(`Nenhuma atividade marcada como reconduzida foi encontrada para o ano de ${currentYear}.`, "info");
+        setIsLoading(false);
+        return;
+      }
+
+      let copiedCount = 0;
+      let alreadyExistsCount = 0;
+      const createdNextYearList: any[] = [];
+
+      for (const act of reconduzidas) {
+        if (!act) continue;
+
+        // Verificar se já existe uma atividade correspondente (reconduzida) no próximo ano letivo
+        const alreadyCopied = rawActivities.some((a) => {
+          const isNextYear = Number(a.ano) === nextYear;
+          const isSameOrigin = Number(a.anoOrigem) === currentYear;
+          const isSameName = (a.nomeActividade || a.title || a.designacao || "").trim().toLowerCase() ===
+            (act.nomeActividade || act.title || act.designacao || "").trim().toLowerCase();
+          return isNextYear && isSameOrigin && isSameName;
+        });
+
+        if (alreadyCopied) {
+          alreadyExistsCount++;
+          continue;
+        }
+
+        // Criar nova atividade para o Plano da Instituição do ano seguinte
+        const newActId = `act_rec_init_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        const nextYearActivity = {
+          ...act,
+          id: newActId,
+          ano: nextYear,
+          status: "planeado", // Status inicial como 'planeado' conforme Regra 9
+          statusAprovacao: "pendente",
+          aprovada: false,
+          isPESOE: false,
+          isReconduzida: true,
+          anoOrigem: currentYear,
+          dataReconducao: new Date().toISOString(),
+          observacoes: (act.observacoes ? act.observacoes + "\n" : "") + `[Inicializada automaticamente para o Plano Institucional de ${nextYear} como Planeado]`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          // Removendo de todas as direções atuais conforme Regra 8 e 5
+          direcao: "",
+          departamento: "",
+          setor: "",
+          reparticao: "",
+          unidadeOrganica: "",
+        };
+
+        await firestoreService.matrixActivities.add(nextYearActivity);
+        createdNextYearList.push(nextYearActivity);
+        copiedCount++;
+      }
+
+      if (createdNextYearList.length > 0) {
+        setRawActivities((prev) => [...prev, ...createdNextYearList]);
+      }
+
+      onShowAlert(
+        `Plano Institucional de ${nextYear} inicializado com sucesso!\n` +
+        `• ${copiedCount} atividade(s) reconduzida(s) copiada(s) com status 'planeado' e removida(s) de direções.\n` +
+        (alreadyExistsCount > 0 ? `• ${alreadyExistsCount} atividade(s) já existia(m) e foram pulada(s).` : ""),
+        "success"
+      );
+    } catch (err: any) {
+      console.error("Erro ao inicializar plano do próximo ano letivo:", err);
+      onShowAlert("Erro ao inicializar plano do próximo ano letivo: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleClearAllActivities = async () => {
     if (!isPlanificacao && !isAdminOrProgrammer && user?.role !== "admin" && user?.role !== "administrador") {
       onShowAlert("Apenas o Setor de Planificação ou Administradores têm permissão para limpar os planos.");
@@ -2209,6 +2363,61 @@ export default function PlanoWorkflowView({
   const [editingActivity, setEditingActivity] = useState<MatrixActivity | null>(
     null,
   );
+
+  const handleStartEditActivity = (act: any) => {
+    if (!act) return;
+    const group = getActivityGroup(act, rawActivities);
+    const groupToUse = group.length > 0 ? group : [act];
+
+    let allRubricas: any[] = [];
+
+    groupToUse.forEach((groupItem) => {
+      if (Array.isArray(groupItem.rubricas) && groupItem.rubricas.length > 0) {
+        groupItem.rubricas.forEach((r: any, rIdx: number) => {
+          allRubricas.push({
+            ...r,
+            id: r.id || `${groupItem.id}_${rIdx}`,
+            rubrica: r.rubrica || groupItem.orcamento || "",
+            necessidade: r.necessidade || r.especificacao || groupItem.necessidade || "",
+            especificacao: r.especificacao || r.necessidade || groupItem.especificacao || "",
+            nomeProduto: r.nomeProduto || r.produto || r.item || r.nomeItem || groupItem.nomeProduto || groupItem.item || "",
+            quantidade: Number(r.quantidade ?? r.quant ?? groupItem.quantidade ?? 0),
+            precoUnitario: Number(r.precoUnitario ?? r.unitario ?? groupItem.valor ?? 0),
+            valorTotal: Number(r.valorTotal ?? r.total ?? (Number(r.quantidade || 0) * Number(r.precoUnitario || 0))),
+          });
+        });
+      } else if (groupItem.rubrica || groupItem.necessidade || groupItem.orcamento || groupItem.item || groupItem.nomeProduto) {
+        allRubricas.push({
+          id: groupItem.id || Math.random().toString(36).substr(2, 9),
+          rubrica: groupItem.rubrica || groupItem.orcamento || "",
+          necessidade: groupItem.necessidade || groupItem.especificacao || "",
+          especificacao: groupItem.especificacao || groupItem.necessidade || "",
+          nomeProduto: groupItem.nomeProduto || groupItem.produto || groupItem.item || groupItem.nomeItem || "",
+          quantidade: Number(groupItem.quantidade ?? groupItem.quant ?? 1),
+          precoUnitario: Number(groupItem.precoUnitario ?? groupItem.unitario ?? groupItem.valor ?? 0),
+          valorTotal: Number(groupItem.valorTotal ?? groupItem.total ?? groupItem.valor ?? 0),
+        });
+      }
+    });
+
+    const uniqueRubricas: any[] = [];
+    allRubricas.forEach((r) => {
+      const key = `${r.rubrica}_${r.necessidade}_${r.nomeProduto || ""}_${r.quantidade}_${r.precoUnitario}`;
+      if (!uniqueRubricas.some((u) => `${u.rubrica}_${u.necessidade}_${u.nomeProduto || ""}_${u.quantidade}_${u.precoUnitario}` === key)) {
+        uniqueRubricas.push(r);
+      }
+    });
+
+    const baseAct = groupToUse[0] || act;
+    const consolidated = {
+      ...baseAct,
+      _groupIds: groupToUse.map((g) => g.id).filter(Boolean),
+      rubricas: uniqueRubricas.length > 0 ? uniqueRubricas : (baseAct.rubricas || []),
+    };
+
+    setEditingActivity(consolidated);
+    setShowAddForm(true);
+  };
   const [formData, setFormData] = useState({
     no: "",
     title: "",
@@ -3351,6 +3560,7 @@ export default function PlanoWorkflowView({
         "",
         "",
         "",
+        "",
         ""
       ];
 
@@ -3368,9 +3578,10 @@ export default function PlanoWorkflowView({
         "M/T",
         "Rúbrica",
         "Necessidade",
+        "nome do produto",
         "QUANT",
         "Unitário (MT)",
-        "VALOR TOTAL GERAL (MZM)"
+        "VALOR TOTAL GERAL (MZN)"
       ];
 
       // Agrupar actividades para permitir mesclagens (mesma actividade com múltiplas rubricas)
@@ -3382,7 +3593,7 @@ export default function PlanoWorkflowView({
         { s: { r: 0, c: 5 }, e: { r: 0, c: 7 } }, // II. ATIVIDADE
         { s: { r: 0, c: 8 }, e: { r: 0, c: 9 } }, // V. TEMPO E DURAÇÃO
         { s: { r: 0, c: 10 }, e: { r: 1, c: 10 } }, // VI. TRANS
-        { s: { r: 0, c: 11 }, e: { r: 0, c: 15 } } // VII. RUBRICAS E NECESSIDADES
+        { s: { r: 0, c: 11 }, e: { r: 0, c: 16 } } // VII. RUBRICAS E NECESSIDADES
       ];
 
       let currentRow = 2; // Começa após as duas linhas de cabeçalho
@@ -3413,9 +3624,10 @@ export default function PlanoWorkflowView({
             idx === 0 ? (act.necessidadeTransporte || act.necessidade_transporte || "Não") : "", // M/T
             act.rubrica || "", // Rúbrica
             act.necessidade || "", // Necessidade
+            act.nomeProduto || act.produto || act.item || act.nomeItem || "", // nome do produto
             act.numPessoasEnvolvidas || act.quant || 1, // QUANT
             act.unitario || 0, // Unitário (MT)
-            act.valorTotal || act.valor_total || act.total || 0 // VALOR TOTAL GERAL (MZM)
+            act.valorTotal || act.valor_total || act.total || 0 // VALOR TOTAL GERAL (MZN)
           ];
           groupedData.push(row);
         });
@@ -3810,6 +4022,15 @@ export default function PlanoWorkflowView({
                       )}{" "}
                       Foco
                     </button>
+                    {!isReadOnly && (isAdminOrProgrammer || selectedRoleMode === "Planificação" || selectedRoleMode === "Órgão Colegial") && (
+                      <button
+                        onClick={handleInitializeNextYearPlan}
+                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px]  tracking-widest px-4 py-2.5 rounded-lg transition-all flex items-center gap-2 cursor-pointer"
+                        title="Inicializar o plano institucional do próximo ano letivo copiando automaticamente todas as atividades reconduzidas com o status inicial 'planeado'."
+                      >
+                        <PlayCircle size={14} /> Inicializar Próximo Ano
+                      </button>
+                    )}
                     {!isReadOnly && isAdminOrProgrammer && (
                       <>
                         <button
@@ -3909,6 +4130,23 @@ export default function PlanoWorkflowView({
                     >
                       <RotateCcw size={13} />
                       <span>Reconduzir ({selectedActivityIds.length})</span>
+                    </button>
+                  )}
+
+                  {/* RECONDUZIR REPROVADAS AUTOMATICAMENTE */}
+                  {(selectedRoleMode === "Órgão Colegial" || user?.role === "Administrador") && filteredActivities.some(a => a.status === "reprovado" || a.statusAprovacao === "reprovada" || a.statusAprovacao === "reprovado") && (
+                    <button
+                      onClick={async () => {
+                        const reprovadas = filteredActivities.filter(a => a.status === "reprovado" || a.statusAprovacao === "reprovada" || a.statusAprovacao === "reprovado");
+                        if (confirm(`Deseja reconduzir automaticamente todas as ${reprovadas.length} atividades reprovadas para o Plano da Instituição do próximo ano (${Number(selectedYear || 2026) + 1}), removendo-as das direções atuais?`)) {
+                          await performRolloverForActivities(reprovadas);
+                        }
+                      }}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer animate-pulse"
+                      title="Reconduzir todas as atividades reprovadas"
+                    >
+                      <RotateCcw size={13} />
+                      <span>Reconduzir Reprovadas ({filteredActivities.filter(a => a.status === "reprovado" || a.statusAprovacao === "reprovada" || a.statusAprovacao === "reprovado").length})</span>
                     </button>
                   )}
 
@@ -4315,10 +4553,7 @@ export default function PlanoWorkflowView({
                                 {canEdit(activity) ? (
                                   <>
                                     <button
-                                      onClick={() => {
-                                        setEditingActivity(activity);
-                                        setShowAddForm(true);
-                                      }}
+                                      onClick={() => handleStartEditActivity(activity)}
                                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                       title="Editar"
                                     >
@@ -4334,10 +4569,7 @@ export default function PlanoWorkflowView({
                                   </>
                                 ) : (
                                   <button
-                                    onClick={() => {
-                                      setEditingActivity(activity);
-                                      setShowAddForm(true);
-                                    }}
+                                    onClick={() => handleStartEditActivity(activity)}
                                     className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                     title="Visualizar"
                                   >
@@ -7037,11 +7269,14 @@ export default function PlanoWorkflowView({
                                   filteredActivities
                                     .filter((a) => {
                                       const isApproved =
-                                        a.statusAprovacao === "aprovada" ||
+                                        (a.statusAprovacao === "aprovada" ||
                                         a.status === "institucional" ||
+                                        a.status === "planeado" ||
                                         a.aprovada === true ||
                                         a.aprovado === true ||
-                                        a.isPESOE === true;
+                                        a.isPESOE === true) &&
+                                        a.status !== "reconduzida" &&
+                                        !a.reconduzida;
                                       return isApproved;
                                     })
                                     .sort((a, b) =>
@@ -7462,11 +7697,14 @@ export default function PlanoWorkflowView({
                             const pesoeApprovedActivities = filteredActivities
                               .filter((a) => {
                                 const isApproved =
-                                  a.statusAprovacao === "aprovada" ||
+                                  (a.statusAprovacao === "aprovada" ||
                                   a.status === "institucional" ||
+                                  a.status === "planeado" ||
                                   a.aprovada === true ||
                                   a.aprovado === true ||
-                                  a.isPESOE === true;
+                                  a.isPESOE === true) &&
+                                  a.status !== "reconduzida" &&
+                                  !a.reconduzida;
                                 return isApproved;
                               })
                               .filter((a) =>
@@ -8085,24 +8323,45 @@ export default function PlanoWorkflowView({
                           activity.title,
                         );
                         if (editingActivity && editingActivity.id && !data._forceNewRecord) {
+                          const primaryId = editingActivity.id;
+                          const groupDocs = getActivityGroup(editingActivity, rawActivities);
+                          const allGroupIds = new Set<string>([
+                            ...(editingActivity._groupIds || []),
+                            ...groupDocs.map((g) => g.id),
+                          ]);
+                          const secondaryIds = Array.from(allGroupIds).filter((id) => id && id !== primaryId);
+
                           console.log(
-                            "PlanoWorkflowView: Atualizando atividade existente ID:",
-                            editingActivity.id,
-                          );
-                          await firestoreService.matrixActivities.replace(
-                            editingActivity.id,
-                            activity,
-                          );
-                          console.log(
-                            "PlanoWorkflowView: Atividade atualizada no Firestore.",
+                            "PlanoWorkflowView: Substituindo atividade existente ID:",
+                            primaryId,
+                            "e removendo duplicados secundários:",
+                            secondaryIds,
                           );
 
-                          // Atualizar estado local da atividade principal
-                          setRawActivities((prev) =>
-                            prev.map((a) =>
-                              a.id === editingActivity.id ? activity : a,
-                            ),
+                          // 1. Substituir a atividade principal no Firestore
+                          await firestoreService.matrixActivities.replace(
+                            primaryId,
+                            activity,
                           );
+
+                          // 2. Eliminar quaisquer registos duplicados do mesmo grupo no Firestore
+                          for (const oldId of secondaryIds) {
+                            try {
+                              await firestoreService.matrixActivities.delete(oldId);
+                            } catch (errDel) {
+                              console.warn("Aviso ao remover duplicado:", oldId, errDel);
+                            }
+                          }
+
+                          console.log(
+                            "PlanoWorkflowView: Atividade atualizada e duplicados eliminados com sucesso.",
+                          );
+
+                          // 3. Atualizar estado local eliminando duplicados e atualizando o registo principal
+                          setRawActivities((prev) => {
+                            const cleaned = prev.filter((a) => a.id === primaryId || !secondaryIds.includes(a.id));
+                            return cleaned.map((a) => (a.id === primaryId ? activity : a));
+                          });
 
                           console.log(
                             "PlanoWorkflowView: Fechando formulário.",

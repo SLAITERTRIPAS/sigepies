@@ -48,7 +48,7 @@ import {
   isTechnicianUser,
 } from "./lib/auth";
 import { ProcessingCircle } from "./components/ui/ProcessingCircle";
-import { MENU_NAVIGATION_MAP } from "./lib/menuNavigationConfig";
+import { MENU_NAVIGATION_MAP, getMenuNavigationConfig } from "./lib/menuNavigationConfig";
 import {
   firestoreService,
   wipeDatabaseExceptExclusions,
@@ -62,6 +62,7 @@ import {
   mergeColaboradores,
   getCircularReplacer,
   safeJSONStringify,
+  verifyAndCleanCache,
 } from "./lib/utils";
 
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
@@ -95,6 +96,8 @@ interface NavigationSnapshot {
   dashboardActiveItem?: string | undefined;
   dashboardItems?: any[];
 }
+
+import { ActiveAlertsDisplay } from "./components/ActiveAlertsDisplay";
 
 export default function App() {
   // 1. Estados de Base (Dados)
@@ -1306,6 +1309,7 @@ export default function App() {
   }, [efetivoEscolar]);
 
   const handleLogin = async (userData: any) => {
+    verifyAndCleanCache();
     let sessionToken = userData.currentSessionToken || localStorage.getItem("sigep_session_token");
     if (!sessionToken) {
       sessionToken = "sigep_sess_" + Date.now() + "_" + Math.random().toString(36).substring(2, 12);
@@ -1842,10 +1846,10 @@ export default function App() {
   ) => {
     const lower = (title || "").toLowerCase().trim();
 
-    // 1. Verificar configuração explícita de submódulo autônomo
-    if ((MENU_NAVIGATION_MAP as Record<string, any>)[lower]) {
-      const cfg = (MENU_NAVIGATION_MAP as Record<string, any>)[lower];
-      safeNavigate(title, cfg.view, cfg.dashboardTitle, cfg.dashboardActiveItem);
+    // 1. Verificar configuração explícita e normalizada de submódulo autônomo
+    const navConfig = getMenuNavigationConfig(title);
+    if (navConfig) {
+      safeNavigate(title, navConfig.view, navConfig.dashboardTitle, navConfig.dashboardActiveItem);
       return;
     }
 
@@ -1863,31 +1867,38 @@ export default function App() {
       return;
     }
 
-    // 3. Ações específicas e diretas de Planos / PESOE (somente se não tiver sub-itens)
+    // 3. Ações específicas e diretas de Planos / PESOE (somente se não tiver sub-itens e nunca para fornecedores/aquisições)
     const isPlan =
-      title === "PESOE" ||
-      title === "Plano de Actividade da UGEA" ||
-      title === "Plano de Atividade da UGEA" ||
-      lower === "gestão de planos" ||
-      lower === "gestao de planos" ||
-      lower === "gestão de planos e actividades" ||
-      lower === "gestao de planos e actividades" ||
-      lower === "plano" ||
-      lower === "planos" ||
-      lower === "plano setorial" ||
-      lower === "plano de atividades" ||
-      lower === "planos de atividades" ||
-      lower === "plano de actividades" ||
-      lower === "planos de actividades" ||
-      lower === "plano de atividade" ||
-      lower === "plano de actividade" ||
-      lower === "plano do gabinete" ||
-      lower === "plano individual" ||
-      lower === "meu plano individual" ||
-      lower === "plano da direção" ||
-      lower === "plano da direccao" ||
-      lower === "matriz de atividades" ||
-      lower === "matriz de actividades";
+      !lower.includes("fornecedor") &&
+      !lower.includes("aquisição") &&
+      !lower.includes("aquisicao") &&
+      !lower.includes("contratação") &&
+      !lower.includes("contratacao") &&
+      (
+        title === "PESOE" ||
+        title === "Plano de Actividade da UGEA" ||
+        title === "Plano de Atividade da UGEA" ||
+        lower === "gestão de planos" ||
+        lower === "gestao de planos" ||
+        lower === "gestão de planos e actividades" ||
+        lower === "gestao de planos e actividades" ||
+        lower === "plano" ||
+        lower === "planos" ||
+        lower === "plano setorial" ||
+        lower === "plano de atividades" ||
+        lower === "planos de atividades" ||
+        lower === "plano de actividades" ||
+        lower === "planos de actividades" ||
+        lower === "plano de atividade" ||
+        lower === "plano de actividade" ||
+        lower === "plano do gabinete" ||
+        lower === "plano individual" ||
+        lower === "meu plano individual" ||
+        lower === "plano da direção" ||
+        lower === "plano da direccao" ||
+        lower === "matriz de atividades" ||
+        lower === "matriz de actividades"
+      );
 
     if (isPlan) {
       safeNavigate(title, "plano_workflow", title, "Gestão de Planos");
@@ -2268,6 +2279,7 @@ export default function App() {
             ))}
           </AnimatePresence>
         </div>
+        <ActiveAlertsDisplay />
       </div>
     );
   }

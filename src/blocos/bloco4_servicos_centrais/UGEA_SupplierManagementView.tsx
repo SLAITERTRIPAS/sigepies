@@ -39,6 +39,7 @@ export default function UGEA_SupplierManagementView({
   const [selectedType, setSelectedType] = useState<string>("Todos");
   const [viewingSupplier, setViewingSupplier] = useState<Supplier | null>(null);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [isAddingSupplier, setIsAddingSupplier] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -105,6 +106,33 @@ export default function UGEA_SupplierManagementView({
     );
   }
 
+  // Se estiver a adicionar um novo fornecedor localmente
+  if (isAddingSupplier) {
+    return (
+      <UGEA_SupplierRegistrationForm
+        onBack={() => setIsAddingSupplier(false)}
+        onSubmit={async (supplierData) => {
+          try {
+            if (supplierData.id) {
+              await firestoreService.suppliers.set(supplierData.id, supplierData);
+            } else {
+              await firestoreService.suppliers.add(supplierData);
+            }
+            if (onShowAlert) {
+              onShowAlert("Fornecedor registado com sucesso!", "success");
+            }
+          } catch (err) {
+            console.error("Erro ao registar fornecedor:", err);
+            if (onShowAlert) {
+              onShowAlert("Erro ao registar fornecedor.", "error");
+            }
+          }
+          setIsAddingSupplier(false);
+        }}
+      />
+    );
+  }
+
   const totalCount = (suppliers || []).length;
   const sociedadesCount = (suppliers || []).filter(
     (s) => s.tipoEmpresa === "Sociedade" || (!s.tipoEmpresa && s.nome?.toLowerCase().includes("lda"))
@@ -152,9 +180,12 @@ export default function UGEA_SupplierManagementView({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onAddSupplier();
+              if (onAddSupplier) {
+                onAddSupplier();
+              }
+              setIsAddingSupplier(true);
             }}
-            className="flex items-center gap-2 bg-[#121c60] hover:bg-[#0e164d] text-white px-5 py-2.5 rounded-xl font-black text-xs tracking-wider shadow-md transition-all"
+            className="flex items-center gap-2 bg-[#121c60] hover:bg-[#0e164d] text-white px-5 py-2.5 rounded-xl font-black text-xs tracking-wider shadow-md transition-all cursor-pointer"
           >
             <Plus size={18} /> Novo Registo de Fornecedor
           </button>
@@ -257,8 +288,12 @@ export default function UGEA_SupplierManagementView({
                     </p>
                     {!searchTerm && (
                       <button
-                        onClick={onAddSupplier}
-                        className="mt-4 inline-flex items-center gap-2 bg-[#121c60] text-white px-4 py-2 rounded-xl text-xs font-bold"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsAddingSupplier(true);
+                        }}
+                        className="mt-4 inline-flex items-center gap-2 bg-[#121c60] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#0e164d] transition-all cursor-pointer"
                       >
                         <Plus size={16} /> Registar Fornecedor Agora
                       </button>

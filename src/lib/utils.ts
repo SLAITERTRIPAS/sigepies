@@ -1754,13 +1754,19 @@ export function isCycleOfficiallyStarted(year: number): boolean {
  */
 export async function extractDominantColorsFromImage(
   imageSrc: string
-): Promise<{ primaryColor: string; secondaryColor: string; accentColor: string }> {
+): Promise<{ 
+  primaryColor: string; 
+  secondaryColor: string; 
+  accentColor: string;
+  allColors: string[];
+}> {
   return new Promise((resolve) => {
     // Default system colors (ISPS signature navy/gold/blue)
     const defaults = {
       primaryColor: "#050b38",
       secondaryColor: "#0d1b54",
       accentColor: "#FFB800",
+      allColors: ["#050b38", "#0d1b54", "#FFB800", "#000066", "#7f1d1d"]
     };
 
     if (!imageSrc || typeof window === "undefined") {
@@ -1801,9 +1807,9 @@ export async function extractDominantColorsFromImage(
             if (a < 80) continue;
 
             // Quantize to group similar colors
-            const quantR = Math.round(r / 20) * 20;
-            const quantG = Math.round(g / 20) * 20;
-            const quantB = Math.round(b / 20) * 20;
+            const quantR = Math.round(r / 15) * 15;
+            const quantG = Math.round(g / 15) * 15;
+            const quantB = Math.round(b / 15) * 15;
 
             const max = Math.max(r, g, b);
             const min = Math.min(r, g, b);
@@ -1811,8 +1817,8 @@ export async function extractDominantColorsFromImage(
             const sat = max === 0 ? 0 : (max - min) / max;
 
             // Ignore pure white, near-white, pure black backgrounds
-            if (brightness > 245 && sat < 0.15) continue;
-            if (brightness < 15 && sat < 0.15) continue;
+            if (brightness > 250 && sat < 0.1) continue;
+            if (brightness < 5 && sat < 0.1) continue;
 
             const key = `${quantR},${quantG},${quantB}`;
             if (!colorCounts[key]) {
@@ -1838,12 +1844,12 @@ export async function extractDominantColorsFromImage(
 
           // Dominant dark/deep primary for headers and bars
           let primary = sortedColors[0];
-          // Find a contrasting accent color (e.g. golden, bright, or complementary)
+          // Find a contrasting accent color
           let accent = sortedColors.find((c) => Math.abs(c.brightness - primary.brightness) > 60 || c.sat > 0.5) || sortedColors[1] || primary;
           // Secondary shade
           let secondary = sortedColors.find((c) => c !== primary && c !== accent) || primary;
 
-          // Adjust primary to ensure good contrast if it's too light
+          // Adjust primary if it's too light for a main background
           let primR = primary.r;
           let primG = primary.g;
           let primB = primary.b;
@@ -1857,10 +1863,16 @@ export async function extractDominantColorsFromImage(
           const hexSecondary = toHex(Math.floor(primR * 1.3), Math.floor(primG * 1.3), Math.floor(primB * 1.3));
           const hexAccent = toHex(accent.r, accent.g, accent.b);
 
+          // Get top 12 unique colors for the palette
+          const allHexColors = Array.from(new Set(
+            sortedColors.slice(0, 15).map(c => toHex(c.r, c.g, c.b))
+          )).slice(0, 12);
+
           resolve({
             primaryColor: hexPrimary,
             secondaryColor: hexSecondary,
             accentColor: hexAccent,
+            allColors: allHexColors
           });
         } catch (e) {
           console.warn("Could not extract dominant colors:", e);
@@ -2014,3 +2026,43 @@ export const formatCargoLimpo = (cargo: string): string => {
   }
   return s;
 };
+
+/**
+ * Verifica a integridade do cache local, limpando dados corrompidos, obsoletos ou
+ * com prefixo sigep_local_* para garantir consistência com os dados remotos durante o login.
+ */
+export function verifyAndCleanCache(): void {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+
+      if (key.startsWith("sigep_local_") || key.startsWith("sigep_draft_corrupt_")) {
+        keysToRemove.push(key);
+        continue;
+      }
+
+      if (key.startsWith("sigep_") && !key.includes("token") && !key.includes("user")) {
+        const val = localStorage.getItem(key);
+        if (val && (val.startsWith("{") || val.startsWith("["))) {
+          try {
+            JSON.parse(val);
+          } catch {
+            keysToRemove.push(key);
+          }
+        }
+      }
+    }
+
+    keysToRemove.forEach((k) => {
+      localStorage.removeItem(k);
+    });
+    if (keysToRemove.length > 0) {
+      console.log(`[Cache Integrity] Limpos ${keysToRemove.length} itens de cache corrompidos ou obsoletos.`);
+    }
+  } catch (e) {
+    console.warn("Aviso na verificação de integridade de cache:", e);
+  }
+}

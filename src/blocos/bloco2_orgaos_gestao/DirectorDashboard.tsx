@@ -91,6 +91,7 @@ import {
   canAccessArea,
   getAuthorizedActivities,
   isTitularDiretorGeral,
+  isInstitutionalAdminUser,
 } from "../../lib/auth";
 import DepartmentSectorAllocationModal from "../../components/DepartmentSectorAllocationModal";
 import { confirmWorkspaceExit } from "../../lib/utils";
@@ -106,6 +107,7 @@ const BalancoInventarioView = lazy(() => import("../bloco4_servicos_centrais/Bal
 const BalancoAtividadesView = lazy(() => import("../bloco4_servicos_centrais/BalancoAtividadesView"));
 const GestaoTransporteView = lazy(() => import("../bloco4_servicos_centrais/GestaoTransporteView"));
 const PlanoWorkflowView = lazy(() => import("../bloco5_sistema/PlanoWorkflowView"));
+const UniversalRegistrationPicker = lazy(() => import("../bloco5_sistema/UniversalRegistrationPicker"));
 const AcaoOrcamentalView = lazy(() => import("../../components/AcaoOrcamentalView"));
 import { firestoreService } from "../../lib/firestoreService";
 import MainHeader from "../bloco1_apresentacao/MainHeader";
@@ -163,7 +165,7 @@ export default function DirectorDashboard({
 }: {
   title: string;
   onBack: () => void;
-  onShowAlert: (msg: string) => void;
+  onShowAlert: (msg: string, type?: string) => void;
   events: Event[];
   onDeleteEvent?: (id: string) => Promise<any>;
   onUpdateEvent?: (id: string, data: any) => Promise<any>;
@@ -205,8 +207,11 @@ export default function DirectorDashboard({
   const isUGEA =
     safeTitle === "Unidade Gestora e Executora de Aquisições" ||
     upperTitle.includes("UGEA") ||
-    upperTitle.includes("AQUISIÇÕES") ||
-    upperTitle.includes("AQUISICOES");
+    upperTitle.includes("AQUISIÇ") ||
+    upperTitle.includes("AQUISIC") ||
+    upperTitle.includes("CONTRATAÇ") ||
+    upperTitle.includes("CONTRATAC") ||
+    upperTitle.includes("FORNECEDOR");
 
   const isPatrimonioDept =
     upperTitle.includes("PATRIM") ||
@@ -251,6 +256,9 @@ export default function DirectorDashboard({
     (user?.cargoChefia || "").toLowerCase().includes("diretor geral") ||
     (user?.cargo || "").toLowerCase().includes("diretor geral") ||
     (user?.cargo || "").toLowerCase().includes("diretor-geral");
+
+  // A opção de Configurar Menus do Setor deve estar disponível apenas para administradores da instituição e geral
+  const canConfigureSectorMenus = isSuperBossUser(user) || isInstitutionalAdminUser(user);
 
   // Setores em que o utilizador (chefe ou técnico) opera
   const userAssignedSectors = useMemo(() => {
@@ -844,16 +852,42 @@ export default function DirectorDashboard({
   // Se o item ativo atual tiver sido ocultado na configuração deste setor, alterna para o primeiro menu visível
   React.useEffect(() => {
     if (menuItems.length > 0) {
+      const lowerActive = (activeItem || "").toLowerCase().trim();
+      const isSubView =
+        activeItem === "Visão Geral" ||
+        lowerActive.includes("fornecedor") ||
+        lowerActive.includes("fornecedores") ||
+        lowerActive.includes("supplier") ||
+        activeItem === "UGEA_SupplierForm" ||
+        activeItem === "Registo de Fornecedores" ||
+        activeItem === "Registo de Fornecedor" ||
+        activeItem === "Formulário de Registo de Fornecedores" ||
+        activeItem === "Formulário de Registo de Fornecedor" ||
+        activeItem === "SupplierRegistration" ||
+        activeItem === "Novo Registo de Fornecedor" ||
+        activeItem === "Gestão de Fornecedores" ||
+        activeItem === "Gestão de Fornecedor" ||
+        activeItem === "Fornecedores" ||
+        activeItem === "Fornecedor" ||
+        activeItem === "Registar" ||
+        activeItem === "Gestão de Produtos e Preços" ||
+        activeItem === "Plano de Aquisição" ||
+        activeItem === "Plano de Contratação";
+
       const isCurrentActiveVisible = menuItems.some(
         (item: any) =>
           item.title === activeItem ||
           (item.subItems && item.subItems.some((sub: any) => sub.title === activeItem))
       );
-      if (!isCurrentActiveVisible && activeItem !== "Visão Geral") {
-        setActiveItem(menuItems[0]?.title || "Visão Geral");
+      if (!isCurrentActiveVisible && !isSubView) {
+        if (isUGEA || lowerActive.includes("fornecedor")) {
+          setActiveItem("Gestão de Fornecedores");
+        } else {
+          setActiveItem(menuItems[0]?.title || "Visão Geral");
+        }
       }
     }
-  }, [menuItems, activeItem]);
+  }, [menuItems, activeItem, isUGEA]);
 
   const allMenuItems = menuItems;
   console.log("allMenuItems:", allMenuItems);
@@ -1109,33 +1143,77 @@ export default function DirectorDashboard({
       return <GestaoProdutosPrecosView />;
     }
 
-    if (isUGEA) {
-      if (activeItem === "Gestão de Fornecedores") {
-        return (
-          <UGEA_SupplierManagementView
-            onBack={handleBack}
-            onAddSupplier={() => navigateTo("UGEA_SupplierForm")}
-            suppliers={suppliers || []}
-          />
-        );
-      }
-      if (activeItem === "UGEA_SupplierForm") {
-        return (
+    const lowerActive = (activeItem || "").toLowerCase().trim();
+
+    // 1. Formulário de Registo / Novo Registo de Fornecedor
+    const isSupplierReg =
+      lowerActive.includes("registo de fornecedor") ||
+      lowerActive.includes("registo de fornecedores") ||
+      lowerActive.includes("novo registo de fornecedor") ||
+      lowerActive.includes("novo registo de fornecedores") ||
+      lowerActive.includes("novo fornecedor") ||
+      lowerActive.includes("formulário de registo de fornecedor") ||
+      lowerActive.includes("formulario de registo de fornecedor") ||
+      lowerActive.includes("formulário de registo de fornecedores") ||
+      lowerActive.includes("formulario de registo de fornecedores") ||
+      lowerActive === "ugea_supplierform" ||
+      lowerActive === "supplierregistration" ||
+      lowerActive === "supplier_form" ||
+      (activeItem === "Registar" && (isUGEA || safeTitle.toLowerCase().includes("ugea") || safeTitle.toLowerCase().includes("fornecedor") || safeTitle.toLowerCase().includes("aquisição") || safeTitle.toLowerCase().includes("aquisicao")));
+
+    if (isSupplierReg) {
+      return (
+        <div className="absolute inset-0 bg-white z-50 flex flex-col pt-4">
           <UGEA_SupplierRegistrationForm
-            onBack={handleBack}
-            onSubmit={async (data) => {
+            onBack={() => setActiveItem("Gestão de Fornecedores")}
+            onSubmit={async (supplierData) => {
               try {
-                await firestoreService.suppliers.add(data);
-                onShowAlert("Fornecedor registado com sucesso!");
-                handleBack();
-              } catch (error) {
-                console.error("Error adding supplier:", error);
-                onShowAlert("Erro ao registar fornecedor. Tente novamente.");
+                if (supplierData.id) {
+                  await firestoreService.suppliers.set(supplierData.id, supplierData);
+                } else {
+                  await firestoreService.suppliers.add(supplierData);
+                }
+                if (onShowAlert) {
+                  onShowAlert("Fornecedor registado com sucesso!", "success");
+                }
+              } catch (err) {
+                console.error("Erro ao registar fornecedor:", err);
+                if (onShowAlert) {
+                  onShowAlert("Erro ao registar fornecedor.", "error");
+                }
               }
+              setActiveItem("Gestão de Fornecedores");
             }}
           />
-        );
-      }
+        </div>
+      );
+    }
+
+    // 2. Área / Tabela de Gestão de Fornecedores
+    const isSupplierManagement =
+      lowerActive === "gestão de fornecedores" ||
+      lowerActive === "gestao de fornecedores" ||
+      lowerActive === "gestão de fornecedor" ||
+      lowerActive === "gestao de fornecedor" ||
+      lowerActive === "fornecedores" ||
+      lowerActive === "fornecedor" ||
+      lowerActive === "supplier_management" ||
+      lowerActive === "suppliers";
+
+    if (isSupplierManagement) {
+      return (
+        <div className="absolute inset-0 bg-white z-50 flex flex-col pt-4">
+          <UGEA_SupplierManagementView
+            onBack={handleBack}
+            suppliers={suppliers || []}
+            onAddSupplier={() => setActiveItem("Registo de Fornecedor")}
+            onShowAlert={onShowAlert}
+          />
+        </div>
+      );
+    }
+
+    if (isUGEA) {
       if (activeItem === "Plano de Aquisição") {
         return (
           <UGEA_PlanView
@@ -1357,31 +1435,37 @@ export default function DirectorDashboard({
     }
 
     if (
-      activeItem === "Gestão de Planos" ||
-      activeItem === "Gestão de Planos e Actividades" ||
-      activeItem === "Matriz" ||
-      activeItem === "Plano" ||
-      activeItem === "Planos" ||
-      activeItem === "Plano de Atividades" ||
-      activeItem === "Planos de Atividades" ||
-      activeItem === "Plano de Actividades" ||
-      activeItem === "Planos de Actividades" ||
-      activeItem === "Plano de Atividade" ||
-      activeItem === "Plano de Actividade" ||
-      activeItem === "Plano da Direção" ||
-      activeItem === "Meu Plano Individual" ||
-      activeItem === "Plano Individual" ||
-      activeItem === "Plano do Gabinete" ||
-      activeItem === "Plano Setorial" ||
-      activeItem === "Planificação" ||
-      activeItem === "Planificação de Atividades" ||
-      activeItem === "Matriz de Atividades" ||
-      activeItem === "Matriz de Actividades" ||
-      (activeItem &&
-        activeItem.toLowerCase().includes("plano") &&
-        !activeItem.toLowerCase().includes("aquisição") &&
-        !activeItem.toLowerCase().includes("contratação")) ||
-      (activeItem && activeItem.toLowerCase().includes("planific"))
+      !isSupplierReg &&
+      !isSupplierManagement &&
+      !lowerActive.includes("fornecedor") &&
+      (
+        activeItem === "Gestão de Planos" ||
+        activeItem === "Gestão de Planos e Actividades" ||
+        activeItem === "Matriz" ||
+        activeItem === "Plano" ||
+        activeItem === "Planos" ||
+        activeItem === "Plano de Atividades" ||
+        activeItem === "Planos de Atividades" ||
+        activeItem === "Plano de Actividades" ||
+        activeItem === "Planos de Actividades" ||
+        activeItem === "Plano de Atividade" ||
+        activeItem === "Plano de Actividade" ||
+        activeItem === "Plano da Direção" ||
+        activeItem === "Meu Plano Individual" ||
+        activeItem === "Plano Individual" ||
+        activeItem === "Plano do Gabinete" ||
+        activeItem === "Plano Setorial" ||
+        activeItem === "Planificação" ||
+        activeItem === "Planificação de Atividades" ||
+        activeItem === "Matriz de Atividades" ||
+        activeItem === "Matriz de Actividades" ||
+        (activeItem &&
+          activeItem.toLowerCase().includes("plano") &&
+          !activeItem.toLowerCase().includes("aquisição") &&
+          !activeItem.toLowerCase().includes("contratação") &&
+          !activeItem.toLowerCase().includes("fornecedor")) ||
+        (activeItem && activeItem.toLowerCase().includes("planific") && !activeItem.toLowerCase().includes("fornecedor"))
+      )
     ) {
       return (
         <PlanoWorkflowView
@@ -1653,39 +1737,22 @@ export default function DirectorDashboard({
       );
     }
 
-    if (
-      activeItem === "Gestão de Fornecedores" ||
-      activeItem === "Fornecedores"
-    ) {
+    if (activeItem === "Registar") {
       return (
-        <div className="absolute inset-0 bg-white z-50 flex flex-col">
-          <UGEA_SupplierManagementView
-            onBack={handleBack}
-            suppliers={suppliers || []}
-            onAddSupplier={() => navigateTo("SupplierRegistration")}
-            onShowAlert={onShowAlert}
-          />
-        </div>
-      );
-    }
-
-    if (
-      activeItem === "Registo de Fornecedores" ||
-      activeItem === "Registo de Fornecedor" ||
-      activeItem === "Formulário de Registo de Fornecedores" ||
-      activeItem === "Formulário de Registo de Fornecedor" ||
-      activeItem === "SupplierRegistration" ||
-      activeItem === "UGEA_SupplierForm"
-    ) {
-      return (
-        <div className="absolute inset-0 bg-white z-50 flex flex-col">
-          <UGEA_SupplierRegistrationForm
-            onBack={handleBack}
-            onSubmit={async (supplierData) => {
-              await firestoreService.suppliers.add(supplierData);
-              onShowAlert("Fornecedor registado com sucesso!");
-              handleBack();
+        <div className="p-6 bg-slate-50 min-h-screen">
+          <UniversalRegistrationPicker
+            onSelect={(formType) => {
+              if (formType === "fornecedor") {
+                setActiveItem("Registo de Fornecedores");
+              } else if (formType === "produto") {
+                setActiveItem("Gestão de Produtos e Preços");
+              } else {
+                setActiveItem("Gestão de Utilizadores");
+              }
             }}
+            onClose={() => setActiveItem("Gestão de Fornecedores")}
+            currentUser={user}
+            contextHint={isUGEA ? "fornecedor" : ""}
           />
         </div>
       );
@@ -2115,17 +2182,19 @@ export default function DirectorDashboard({
             <span className="sm:hidden">Equipa</span>
           </button>
 
-          {/* Botão de Personalização e Ocultação de Menus do Setor */}
-          <button
-            type="button"
-            onClick={() => setShowSectorMenuModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-xl font-bold transition shadow-xs cursor-pointer"
-            title="Personalizar e ocultar/mostrar funcionalidades atribuídas especificamente a este setor"
-          >
-            <Sliders size={14} className="text-amber-700 font-bold" />
-            <span className="hidden sm:inline">Configurar Menus do Setor</span>
-            <span className="sm:hidden">Menus</span>
-          </button>
+          {/* Botão de Personalização e Ocultação de Menus do Setor - Disponível apenas para Administradores da Instituição e Geral */}
+          {canConfigureSectorMenus && (
+            <button
+              type="button"
+              onClick={() => setShowSectorMenuModal(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-xl font-bold transition shadow-xs cursor-pointer"
+              title="Personalizar e ocultar/mostrar funcionalidades atribuídas especificamente a este setor (Apenas Administradores)"
+            >
+              <Sliders size={14} className="text-amber-700 font-bold" />
+              <span className="hidden sm:inline">Configurar Menus do Setor</span>
+              <span className="sm:hidden">Menus</span>
+            </button>
+          )}
 
           {/* Botão de Navegação Geral da Instituição - Apenas Diretor-Geral ou Super Boss */}
           {isDGOrSuperBoss && (
@@ -2141,7 +2210,7 @@ export default function DirectorDashboard({
           )}
         </div>
 
-        {showSectorMenuModal && (
+        {canConfigureSectorMenus && showSectorMenuModal && (
           <SectorMenuConfigModal
             sectorName={title}
             instituicaoId={user?.instituicaoId || getActiveInstituicaoId()}

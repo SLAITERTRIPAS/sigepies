@@ -4,6 +4,56 @@
  * fiquem estritamente abaixo de ~200 KB, prevenindo o erro de limite de 1 MiB por documento.
  */
 
+export async function removeImageBackground(dataUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Detectar a cor de fundo (pixel no canto superior esquerdo)
+      const r_bg = data[0];
+      const g_bg = data[1];
+      const b_bg = data[2];
+
+      const threshold = 45; // Sensibilidade para detecção de fundo
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        // Tornar transparente se for muito próximo do branco OU da cor do canto superior esquerdo
+        const isWhite = r > 240 && g > 240 && b > 240;
+        const isBgColor = 
+          Math.abs(r - r_bg) < threshold && 
+          Math.abs(g - g_bg) < threshold && 
+          Math.abs(b - b_bg) < threshold;
+
+        if (isWhite || isBgColor) {
+          data[i + 3] = 0; // Alpha = 0 (Transparente)
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 export async function optimizeImageForFirestore(
   source: File | string,
   maxWidth = 320,

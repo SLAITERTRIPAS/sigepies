@@ -24,7 +24,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { InstitutionalHeader } from "./InstitutionalHeader";
 import { printElementById } from "../lib/printUtils";
 import { UNIDADES_ORGANICAS_SISTEMA, DEPARTAMENTOS, getSetoresByDepartamento } from "../constants/formOptions";
-import { isSuperBossUser, canAccessArea, getAuthorizedActivities } from "../lib/auth";
+import { isSuperBossUser, canAccessArea, getAuthorizedActivities, isActivityFromUserSector } from "../lib/auth";
 import { isValidActivity } from "../blocos/bloco5_sistema/plano/PlanoHelpers";
 
 const formatCurrency = (val) => new Intl.NumberFormat("pt-MZ", { style: "currency", currency: "MZN" }).format(val || 0);
@@ -655,24 +655,8 @@ export default function AcaoOrcamentalView({
       return getAuthorizedActivities(valid, user);
     }
 
-    // Para utilizadores de setor: restringir estritamente às informações planificadas pelo próprio setor logado
-    const userDept = String(user?.departamento || user?.setor || user?.reparticao || title || "").toLowerCase().trim();
-    const userDir = String(user?.direcao || "").toLowerCase().trim();
-    const uEmail = String(user?.email || "").toLowerCase().trim();
-    const uName = String(user?.nome || user?.name || "").toLowerCase().trim();
-
-    return valid.filter((a) => {
-      const actDept = String(a.departamento || a.setor || a.reparticao || "").toLowerCase().trim();
-      const actDir = String(a.direcao || "").toLowerCase().trim();
-      const actCreator = String(a.createdBy || a.emailCriador || a.autorEmail || "").toLowerCase().trim();
-      const actCreatorName = String(a.createdByName || a.autor || "").toLowerCase().trim();
-
-      const isOwnDept = userDept && (actDept === userDept || actDept.includes(userDept) || userDept.includes(actDept));
-      const isOwnDir = userDir && (actDir === userDir || actDir.includes(userDir) || userDir.includes(actDir));
-      const isOwnCreator = (uEmail && actCreator === uEmail) || (uName && actCreatorName === uName);
-
-      return isOwnDept || isOwnDir || isOwnCreator;
-    });
+    // Para utilizadores de setor (incluindo UGEA): restringir estritamente às informações planificadas pelo próprio setor logado
+    return valid.filter((a) => isActivityFromUserSector(a, user));
   }, [activities, user, title, isPlanificacaoOrDPEP]);
 
   // Extrair unidades organizacionais por nível
@@ -1133,6 +1117,20 @@ export default function AcaoOrcamentalView({
     });
 
     return Object.values(parentMap).sort((a, b) => b.totalValor - a.totalValor);
+  }, [sectorActivities]);
+
+  const totalQuantidadeProdutos = useMemo(() => {
+    let sum = 0;
+    sectorActivities.forEach((act) => {
+      if (Array.isArray(act.rubricas) && act.rubricas.length > 0) {
+        act.rubricas.forEach((r: any) => {
+          sum += Number(r.qtd || r.quantidade || r.qnt || 1);
+        });
+      } else {
+        sum += 1;
+      }
+    });
+    return sum;
   }, [sectorActivities]);
 
   // Agrupar e consolidar o orçamento total distribuído por cada setor real do sistema
@@ -2364,9 +2362,9 @@ export default function AcaoOrcamentalView({
               </div>
               <div className="space-y-1">
                 <div className="text-2xl font-black text-slate-900 font-mono tracking-tighter">
-                  {parentRubricasBreakdown.reduce((acc, curr) => acc + curr.itemsCount, 0)}
+                  {totalQuantidadeProdutos}
                 </div>
-                <div className="text-[10px] font-bold text-slate-500  tracking-wider">Necessidades/Itens</div>
+                <div className="text-[10px] font-bold text-slate-500 tracking-wider">Quantidade de Produtos / Itens</div>
               </div>
             </div>
           </div>

@@ -328,8 +328,18 @@ export const ActivityTableRow = React.memo(function ActivityTableRow({
                       ✓ Aprovada
                     </span>
                   ) : null}
+                  {activity.status === "reconduzida" || activity.reconduzida ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-indigo-100 text-indigo-800 border border-indigo-200 shadow-sm">
+                      🔄 Reconduzida p/ {activity.reconduzidaParaAno || Number(activity.ano || 2026) + 1}
+                    </span>
+                  ) : null}
+                  {activity.isReconduzida && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-purple-100 text-purple-800 border border-purple-200 shadow-sm">
+                      📥 Reconduzida de {activity.anoOrigem || "Ano Anterior"}
+                    </span>
+                  )}
                   {activity.ano ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-indigo-100 text-indigo-800 border border-indigo-200 ">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-slate-100 text-slate-800 border border-slate-200 ">
                       Ano: {activity.ano}
                     </span>
                   ) : null}
@@ -476,27 +486,83 @@ export const ActivityTableRow = React.memo(function ActivityTableRow({
                             <span className="p-1.5 bg-emerald-600 text-white rounded-lg group-hover:scale-110 transition-transform">✓</span>
                           </button>
                           
-                          <button
+                           <button
+                             type="button"
+                             onClick={async (e) => {
+                               e.stopPropagation();
+                               if (confirm("Deseja reprovar esta atividade?")) {
+                                 try {
+                                   if (onUpdateApproval) {
+                                     await onUpdateApproval(activity.id, "reprovada");
+                                   } else {
+                                     await firestoreService.matrixActivities.update(activity.id, {
+                                       status: "reprovado",
+                                       statusAprovacao: "reprovado",
+                                       aprovada: false
+                                     });
+                                     alert("Atividade reprovada!");
+                                   }
+                                   setShowOptionsModal(false);
+                                 } catch(err) {
+                                   alert("Erro ao reprovar.");
+                                 }
+                               }
+                             }}
+                             className="w-full p-4 bg-red-50 hover:bg-red-100 border border-red-100 text-red-800 rounded-2xl font-black text-xs text-left flex items-center justify-between group transition-all cursor-pointer"
+                           >
+                             <span>REPROVAR ATIVIDADE</span>
+                             <span className="p-1.5 bg-red-600 text-white rounded-lg group-hover:scale-110 transition-transform">✗</span>
+                           </button>
+
+                           <button
                             type="button"
                             onClick={async (e) => {
                               e.stopPropagation();
-                              if (confirm("Deseja reconduzir esta atividade para o próximo ano fiscal (2027)?")) {
-                                try {
-                                  await firestoreService.matrixActivities.update(activity.id, {
-                                    reconduzida: true,
-                                    ano: 2027,
-                                    status: "institucional"
-                                  });
-                                  alert("Atividade reconduzida para 2027!");
-                                  setShowOptionsModal(false);
-                                } catch(err) {
-                                  alert("Erro ao reconduzir.");
+                              if (confirm(`Deseja reconduzir esta atividade para o Plano da Instituição do próximo ano (${Number(activity.ano || 2026) + 1})?`)) {
+                                if (onRolloverYear) {
+                                  await onRolloverYear(activity.id);
+                                } else {
+                                  try {
+                                    const nextYr = Number(activity.ano || 2026) + 1;
+                                    await firestoreService.matrixActivities.update(activity.id, {
+                                      status: "reconduzida",
+                                      statusAprovacao: "reconduzida",
+                                      reconduzida: true,
+                                      reconduzidaParaAno: nextYr,
+                                      direcao: "",
+                                      departamento: "",
+                                      setor: "",
+                                      reparticao: "",
+                                      unidadeOrganica: "",
+                                    });
+                                    await firestoreService.matrixActivities.add({
+                                      ...activity,
+                                      id: `act_rec_${Date.now()}`,
+                                      ano: nextYr,
+                                      status: "planeado",
+                                      statusAprovacao: "pendente",
+                                      aprovada: false,
+                                      isPESOE: false,
+                                      isReconduzida: true,
+                                      anoOrigem: Number(activity.ano || 2026),
+                                      dataReconducao: new Date().toISOString(),
+                                      direcao: "",
+                                      departamento: "",
+                                      setor: "",
+                                      reparticao: "",
+                                      unidadeOrganica: "",
+                                    });
+                                    alert(`Atividade reconduzida com sucesso para o Plano da Instituição de ${nextYr} com status inicial 'planeado'!`);
+                                  } catch (err) {
+                                    alert("Erro ao reconduzir atividade.");
+                                  }
                                 }
+                                setShowOptionsModal(false);
                               }
                             }}
                             className="w-full p-4 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-800 rounded-2xl font-black text-xs text-left flex items-center justify-between group transition-all cursor-pointer"
                           >
-                            <span>RECONDUZIR PARA ANO+1</span>
+                            <span>RECONDUZIR PARA PLANO DA INSTITUIÇÃO (ANO+1)</span>
                             <span className="p-1.5 bg-indigo-600 text-white rounded-lg group-hover:scale-110 transition-transform">→</span>
                           </button>
                         </div>
@@ -597,11 +663,14 @@ export const ActivityTableRow = React.memo(function ActivityTableRow({
             </td>
 
             {/* VII. RUBRICAS E NECESSIDADES (Individual Rows) */}
-            <td className="p-1.5 border-r border-slate-300 text-[10px] font-bold text-slate-800 w-28 leading-tight break-words whitespace-normal">
+            <td className="p-1.5 border-r border-slate-300 text-[10px] font-bold text-slate-800 w-24 leading-tight break-words whitespace-normal">
               {rubricaItem.rubrica || "-"}
             </td>
             <td className="p-1.5 border-r border-slate-300 text-[10px] text-slate-600 italic w-28 leading-tight break-words whitespace-normal">
               {rubricaItem.necessidade || rubricaItem.especificacao || "-"}
+            </td>
+            <td className="p-1.5 border-r border-slate-300 text-[10px] font-semibold text-slate-800 w-28 leading-tight break-words whitespace-normal">
+              {rubricaItem.nomeProduto || rubricaItem.produto || rubricaItem.item || rubricaItem.nomeItem || "-"}
             </td>
             <td className="p-1 border-r border-slate-300 text-[10px] text-center font-black text-slate-700 w-10">
               {rubricaItem.quantidade || rubricaItem.numeroPessoas || "-"}
@@ -639,7 +708,7 @@ export const ActivityTableRow = React.memo(function ActivityTableRow({
               <div className="flex items-center justify-center gap-1">
                 <span
                   className={`text-[8px] font-black  px-2 py-1 rounded-full border shadow-sm ${
-                    activity.status === "institucional" || activity.status === "consolidated"
+                    activity.status === "institucional" || activity.status === "consolidated" || activity.status === "planeado"
                       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                       : activity.status === "direcao"
                         ? "bg-blue-50 text-blue-700 border-blue-200"
