@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Bell, FileText, Clock, ChevronRight, AlertCircle, ShieldAlert, Sparkles, CheckCircle2, Wrench, RefreshCw } from "lucide-react";
+import { Bell, FileText, Clock, ChevronRight, AlertCircle, ShieldAlert, Sparkles, CheckCircle2, Wrench, RefreshCw, X, Mail } from "lucide-react";
 import { firestoreService } from "../../lib/firestoreService";
 import ModalProcessarRequisicao from "./ModalProcessarRequisicao";
 import ModalProcessarExpediente from "./ModalProcessarExpediente";
@@ -8,14 +8,26 @@ import ModalProcessarReset from "./ModalProcessarReset";
 import { intelligentDiagnostics, DiagnosticResult } from "../../lib/intelligentDiagnostics";
 import { isSuperBossUser } from "../../lib/auth";
 
-export default function NotificationCenter({ user }: { user: any }) {
+export default function NotificationCenter({
+  user,
+  triggerClassName,
+  unreadMessagesCount = 0,
+  onOpenMessages,
+}: {
+  user: any;
+  triggerClassName?: string;
+  unreadMessagesCount?: number;
+  onOpenMessages?: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [requisicoes, setRequisicoes] = useState<any[]>([]);
   const [expedientes, setExpedientes] = useState<any[]>([]);
   const [resetRequests, setResetRequests] = useState<any[]>([]);
+  const [systemNotifs, setSystemNotifs] = useState<any[]>([]);
   const [selectedReq, setSelectedReq] = useState<any | null>(null);
   const [selectedExp, setSelectedExp] = useState<any | null>(null);
   const [selectedReset, setSelectedReset] = useState<any | null>(null);
+  const [selectedNotif, setSelectedNotif] = useState<any | null>(null);
 
   // Diagnostic state for Admins
   const [diagnosticResult, setDiagnosticResult] = useState<DiagnosticResult | null>(null);
@@ -32,10 +44,29 @@ export default function NotificationCenter({ user }: { user: any }) {
       firestoreService.requisicoes_internas.subscribe(setRequisicoes);
     const unsubExp = firestoreService.expedientes.subscribe(setExpedientes);
     const unsubReset = firestoreService.password_reset_requests.subscribe(setResetRequests);
+    
+    // Subscrição de notificações internas gerais do utilizador/instituição
+    let unsubNotifs: (() => void) | undefined;
+    try {
+      unsubNotifs = firestoreService.notifications.subscribe((notifs: any[]) => {
+        const userInstId = user.instituicaoId;
+        const active = (notifs || []).filter(
+          (n) =>
+            (!n.instituicaoId || !userInstId || n.instituicaoId === userInstId) &&
+            (!n.userId || n.userId === user.id) &&
+            !n.read
+        );
+        setSystemNotifs(active);
+      });
+    } catch (err) {
+      console.warn("Aviso ao subscrever notificações em NotificationCenter:", err);
+    }
+
     return () => {
       unsubReq();
       unsubExp();
       unsubReset();
+      if (unsubNotifs) unsubNotifs();
     };
   }, [user]);
 
@@ -185,22 +216,36 @@ export default function NotificationCenter({ user }: { user: any }) {
         )
       );
 
-  const totalNotifications = pendingForMe.length + (hasAnomalies ? activeAnomalies.length : 0);
+  const totalNotifications =
+    pendingForMe.length +
+    systemNotifs.length +
+    (unreadMessagesCount || 0) +
+    (hasAnomalies ? activeAnomalies.length : 0);
 
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/10 group"
+        className={
+          triggerClassName ||
+          "relative p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/10 group cursor-pointer"
+        }
+        title="Notificações e Tarefas Recebidas"
       >
         <Bell
           size={20}
           className="text-white group-hover:scale-110 transition-transform"
         />
-        {totalNotifications > 0 && (
-          <span className={`absolute -top-1 -right-1 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-[#121c60] animate-pulse ${hasAnomalies ? "bg-amber-500" : "bg-red-500"}`}>
+        {totalNotifications > 0 ? (
+          <span
+            className={`absolute -top-1 -right-1 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-[#121c60] animate-pulse ${
+              hasAnomalies ? "bg-amber-500" : "bg-red-500"
+            }`}
+          >
             {totalNotifications}
           </span>
+        ) : (
+          <span className="absolute top-2 right-2 w-2 h-2 bg-indigo-400/60 rounded-full"></span>
         )}
       </button>
 
@@ -288,18 +333,47 @@ export default function NotificationCenter({ user }: { user: any }) {
                 </div>
               )}
 
-              <div className="overflow-y-auto max-h-80">
-                {pendingForMe.length === 0 && (!isAdmin || activeAnomalies.length === 0) ? (
+              <div className="overflow-y-auto max-h-80 divide-y divide-slate-100">
+                {/* Mensagens não lidas */}
+                {unreadMessagesCount > 0 && onOpenMessages && (
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      onOpenMessages();
+                    }}
+                    className="w-full p-3.5 bg-indigo-50/80 hover:bg-indigo-100/90 transition-all text-left flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-sm shrink-0 group-hover:scale-105 transition-transform">
+                        <Mail size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wide">Caixa de Mensagens</h4>
+                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-indigo-200 text-indigo-800">
+                            {unreadMessagesCount} Nova(s)
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-indigo-700 font-medium truncate mt-0.5">
+                          Clique para abrir as mensagens recebidas
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-indigo-600 group-hover:translate-x-1 transition-transform shrink-0" />
+                  </button>
+                )}
+
+                {totalNotifications === 0 ? (
                   <div className="p-12 text-center">
                     <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
                       <Bell size={24} />
                     </div>
                     <p className="text-xs font-bold text-slate-400 tracking-tighter">
-                      Sem tarefas pendentes ou alertas
+                      Sem tarefas pendentes ou notificações
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-50">
+                  <div>
                     {/* Diagnostic Anomalies list for Admin */}
                     {isAdmin && activeAnomalies.map((anom) => (
                       <div
@@ -334,7 +408,35 @@ export default function NotificationCenter({ user }: { user: any }) {
                       </div>
                     ))}
 
-                    {/* Regular process notifications */}
+                    {/* Notificações Gerais e Institucionais Recebidas */}
+                    {systemNotifs.map((notif) => (
+                      <button
+                        key={notif.id}
+                        onClick={() => setSelectedNotif(notif)}
+                        className="w-full p-4 hover:bg-slate-50 transition-all text-left group border-b border-slate-100"
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-[10px] font-mono font-black text-blue-600">
+                            {notif.type === "activity" ? "ATIVIDADE" : notif.type === "document" ? "EXPEDIENTE" : "SISTEMA"}
+                          </span>
+                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                            Recebida
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-black text-slate-800 line-clamp-1 group-hover:text-blue-700 transition-colors">
+                          {notif.title || "Notificação Recebida"}
+                        </h4>
+                        <p className="text-[10px] text-slate-500 font-medium mt-1 line-clamp-2 leading-relaxed">
+                          {notif.message || notif.description || "Clique para abrir os detalhes desta notificação."}
+                        </p>
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50 text-[10px] text-blue-600 font-bold">
+                          <span>Clique para abrir notificação</span>
+                          <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* Regular process notifications (Expedientes, Requisições, Resets) */}
                     {pendingForMe.map((item) => (
                       <button
                         key={item.id}
@@ -347,7 +449,7 @@ export default function NotificationCenter({ user }: { user: any }) {
                             setSelectedReset(item);
                           }
                         }}
-                        className="w-full p-4 hover:bg-slate-50 transition-all text-left group"
+                        className="w-full p-4 hover:bg-slate-50 transition-all text-left group border-b border-slate-100"
                       >
                         <div className="flex justify-between items-start mb-1">
                           <span className="text-[10px] font-mono font-black text-slate-400">
@@ -359,7 +461,7 @@ export default function NotificationCenter({ user }: { user: any }) {
                               : item.numero ? "Expediente" : "Redefinição de Senha"}
                           </span>
                         </div>
-                        <h4 className="text-sm font-black text-slate-800 line-clamp-1">
+                        <h4 className="text-sm font-black text-slate-800 line-clamp-1 group-hover:text-blue-700 transition-colors">
                           {item.solicitante || item.origem || item.identifier}
                         </h4>
                         <p className="text-[10px] text-slate-500 font-medium italic mt-1 line-clamp-2">
@@ -367,7 +469,7 @@ export default function NotificationCenter({ user }: { user: any }) {
                         </p>
                         <div className="flex items-center gap-1.5 mt-3 text-blue-600 opacity-0 group-hover:opacity-100 transition-all">
                           <span className="text-[10px] font-black">
-                            Processar agora
+                            Processar notificação recebida
                           </span>
                           <ChevronRight size={14} />
                         </div>
@@ -379,22 +481,96 @@ export default function NotificationCenter({ user }: { user: any }) {
 
               <div className="p-3 bg-slate-50 border-t border-slate-100 text-center flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-400">
-                  Sistema de Diagnóstico Ativo
+                  {totalNotifications} item(ns) pendente(s)
                 </span>
-                <button
-                  onClick={async () => {
-                    setIsDiagnosing(true);
-                    const res = await intelligentDiagnostics.runDiagnostics();
-                    setDiagnosticResult(res);
-                    setIsDiagnosing(false);
-                  }}
-                  className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 transition-all flex items-center gap-1"
-                >
-                  <RefreshCw size={10} className={isDiagnosing ? "animate-spin" : ""} /> Atualizar Diagnóstico
-                </button>
+                {isAdmin ? (
+                  <button
+                    onClick={async () => {
+                      setIsDiagnosing(true);
+                      const res = await intelligentDiagnostics.runDiagnostics();
+                      setDiagnosticResult(res);
+                      setIsDiagnosing(false);
+                    }}
+                    className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 transition-all flex items-center gap-1"
+                  >
+                    <RefreshCw size={10} className={isDiagnosing ? "animate-spin" : ""} /> Atualizar Diagnóstico
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Notificações Ativas
+                  </span>
+                )}
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Visualização da Notificação Geral Recebida */}
+      <AnimatePresence>
+        {selectedNotif && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-[#121c60] p-5 text-white flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-500/20 rounded-xl text-amber-400">
+                    <Bell size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest block">
+                      Notificação Recebida
+                    </span>
+                    <h3 className="text-base font-bold text-white truncate max-w-sm">
+                      {selectedNotif.title || "Notificação do Sistema"}
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedNotif(null)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                    {selectedNotif.message || selectedNotif.description || "Sem conteúdo adicional."}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                  <span>Origem: {selectedNotif.origin || selectedNotif.solicitante || "Sistema Integrado"}</span>
+                  <span>{selectedNotif.createdAt ? new Date(selectedNotif.createdAt).toLocaleString("pt-PT") : ""}</span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      if (selectedNotif.id) {
+                        await firestoreService.notifications.update(selectedNotif.id, { read: true });
+                      }
+                    } catch (e) {
+                      console.warn("Erro ao marcar notificação como lida:", e);
+                    }
+                    setSelectedNotif(null);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                >
+                  <CheckCircle2 size={14} /> Marcar como Lida
+                </button>
+                <button
+                  onClick={() => setSelectedNotif(null)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
 

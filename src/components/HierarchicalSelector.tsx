@@ -125,9 +125,10 @@ export const HierarchicalSelector: React.FC<HierarchicalSelectorProps> = ({
                 const firstDept = firstDir.departamentos[0];
                 if (firstDept) {
                   setSelectedDepartamento(firstDept.nome);
-                  const firstRep = firstDept.reparticoes[0] || "";
-                  setSelectedReparticao(typeof firstRep === "string" ? firstRep : firstRep.name);
-                  setSelectedSetor(typeof firstRep === "string" ? firstRep : firstRep.name);
+                  const firstRep: any = firstDept.reparticoes[0] || "";
+                  const repName = typeof firstRep === "string" ? firstRep : (firstRep?.name || "");
+                  setSelectedReparticao(repName);
+                  setSelectedSetor(repName);
                 }
               }
             }}
@@ -155,9 +156,10 @@ export const HierarchicalSelector: React.FC<HierarchicalSelectorProps> = ({
               const firstDept = dObj?.departamentos[0];
               if (firstDept) {
                 setSelectedDepartamento(firstDept.nome);
-                const firstRep = firstDept.reparticoes[0] || "";
-                setSelectedReparticao(typeof firstRep === "string" ? firstRep : firstRep.name);
-                setSelectedSetor(typeof firstRep === "string" ? firstRep : firstRep.name);
+                const firstRep: any = firstDept.reparticoes[0] || "";
+                const repName = typeof firstRep === "string" ? firstRep : (firstRep?.name || "");
+                setSelectedReparticao(repName);
+                setSelectedSetor(repName);
               } else {
                 setSelectedDepartamento("");
                 setSelectedReparticao("");
@@ -188,9 +190,10 @@ export const HierarchicalSelector: React.FC<HierarchicalSelectorProps> = ({
             onChange={(e) => {
               setSelectedDepartamento(e.target.value);
               const depObj = departamentosList.find(d => d.nome === e.target.value);
-              const firstRep = depObj?.reparticoes[0] || "";
-              setSelectedReparticao(typeof firstRep === "string" ? firstRep : firstRep.name);
-              setSelectedSetor(typeof firstRep === "string" ? firstRep : firstRep.name);
+              const firstRep: any = depObj?.reparticoes[0] || "";
+              const repName = typeof firstRep === "string" ? firstRep : (firstRep?.name || "");
+              setSelectedReparticao(repName);
+              setSelectedSetor(repName);
             }}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-600 disabled:opacity-60 cursor-pointer"
           >

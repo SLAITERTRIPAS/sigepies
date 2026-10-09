@@ -49,6 +49,7 @@ import SigepLogo from "../../components/SigepLogo";
 import { getActiveInstituicao } from "../../lib/instituicaoEstruturaService";
 import { IntelligentDiagnosticsView } from "./IntelligentDiagnosticsView";
 import SobreSistemaView from "./SobreSistemaView";
+import { BackgroundRemoverView } from "../../components/BackgroundRemoverView";
 import BiografiaView from "./BiografiaView";
 import ManualInstrucoesView from "../bloco8_gerais/ManualInstrucoesView";
 import CalendarView from "../bloco5_sistema/CalendarView";
@@ -714,6 +715,7 @@ export default function SistemaView({
     { title: "Monografia", icon: FileText, parent: "Parte Teórica" },
     { title: "Projeto Teórico", icon: BookOpen, parent: "Parte Teórica" },
     { title: "Projeto Científico", icon: FileText, parent: "Parte Teórica" },
+    { title: "Removedor de Fundo", icon: ImageIcon },
     { title: "Sobre o Sistema", icon: Info },
   ];
 
@@ -752,6 +754,7 @@ export default function SistemaView({
       hidden: isGlobalAdmin ? false : !(canManageUsers || isHRBoss),
     },
     { title: "Configurações", icon: ShieldCheck, hidden: isGlobalAdmin ? false : !canManageUsers },
+    { title: "Removedor de Fundo", icon: ImageIcon },
     { title: "Sobre o Sistema", icon: Info },
   ];
 
@@ -1390,6 +1393,15 @@ export default function SistemaView({
               }}
               user={user}
               onShowAlert={(msg, type) => showAlert(msg, type || "success")}
+            />
+          </div>
+        );
+      case "Removedor de Fundo":
+        return (
+          <div className="w-full">
+            <BackgroundRemoverView 
+              user={user}
+              onLogoApplied={(newLogo) => setSystemLogo(newLogo)}
             />
           </div>
         );
@@ -2158,9 +2170,13 @@ export default function SistemaView({
       <div className="flex-1 w-full bg-[#000033] flex flex-col items-center justify-center p-8 text-white animate-in fade-in duration-700">
         <button 
           onClick={() => setIsRevealed(true)}
-          className="group flex flex-col items-center gap-6 cursor-pointer outline-none"
+          className="group flex flex-col items-center cursor-pointer outline-none"
         >
-          <div className="w-24 h-24 mb-4 transform group-hover:scale-110 transition-transform duration-500">
+          {/* Logótipo posicionado 5px para cima e com separação nítida em relação aos textos */}
+          <div 
+            className="w-24 h-24 mb-10 transform -translate-y-[5px] group-hover:scale-110 transition-transform duration-500 relative"
+            style={{ transform: "translateY(-5px)" }}
+          >
             <SigepLogo 
               size="xl" 
               showText={false} 
@@ -2169,17 +2185,21 @@ export default function SistemaView({
               instituicaoData={activeInstData}
             />
           </div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-[0.3em] text-center uppercase transition-all group-hover:text-amber-400" style={{ textShadow: "0 0 20px rgba(0,0,0,0.5)" }}>
-            Painel do Administrador Geral
-          </h1>
-          <div className="h-1 w-24 bg-amber-400 group-hover:w-80 transition-all duration-700 ease-out shadow-[0_0_15px_rgba(251,191,36,0.5)]"></div>
-          <div className="flex flex-col items-center gap-2 mt-4">
-             <p className="text-[10px] font-black tracking-[0.6em] text-slate-400 uppercase animate-pulse">
-               Clique para Desbloquear Informações
-             </p>
-             <div className="text-[8px] font-mono text-blue-400/50 uppercase tracking-widest mt-2">
-               Sistema de Gestão Integrada &bull; Acesso Restrito
-             </div>
+
+          {/* Textos separados do logótipo com espaçamento harmonioso */}
+          <div className="flex flex-col items-center gap-5 mt-2">
+            <h1 className="text-3xl md:text-5xl font-black tracking-[0.3em] text-center uppercase transition-all group-hover:text-amber-400" style={{ textShadow: "0 0 20px rgba(0,0,0,0.5)" }}>
+              Painel do Administrador Geral
+            </h1>
+            <div className="h-1 w-24 bg-amber-400 group-hover:w-80 transition-all duration-700 ease-out shadow-[0_0_15px_rgba(251,191,36,0.5)]"></div>
+            <div className="flex flex-col items-center gap-2 mt-4">
+               <p className="text-[10px] font-black tracking-[0.6em] text-slate-400 uppercase animate-pulse">
+                 Clique para Desbloquear Informações
+               </p>
+               <div className="text-[8px] font-mono text-blue-400/50 uppercase tracking-widest mt-2">
+                 Sistema de Gestão Integrada &bull; Acesso Restrito
+               </div>
+            </div>
           </div>
         </button>
       </div>

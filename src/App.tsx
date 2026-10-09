@@ -131,9 +131,11 @@ export default function App() {
   const extendedUser = React.useMemo(() => {
     if (!currentUser) return null;
 
+    const isSuperBoss = isSuperBossUser(currentUser);
+
     // Quick lookups using find() - still O(N) but memoized so it only runs when data changes
     // Only search in colaboradores if currentUser is NOT found in processos to save cycles
-    const userProcess = (processos || []).find(
+    const userProcess = isSuperBoss ? null : (processos || []).find(
       (p) =>
         (p.email &&
           currentUser.email &&
@@ -142,7 +144,7 @@ export default function App() {
     );
 
     let colab = null;
-    if (!userProcess && colaboradores && colaboradores.length > 0) {
+    if (!isSuperBoss && !userProcess && colaboradores && colaboradores.length > 0) {
       colab = colaboradores.find(
         (c) =>
           (c.email &&
@@ -166,17 +168,37 @@ export default function App() {
     const photoURL =
       userProcess?.fotoUrl || userProcess?.foto || currentUser.photoURL || currentUser.photo;
 
-    const isOwner = isSuperBossUser(currentUser) || currentUser.isOwner;
-    const systemOwnerName = isOwner ? (localStorage.getItem("proprietarioName") || currentUser.name) : currentUser.name;
-    const systemOwnerPhoto = isOwner ? (localStorage.getItem("proprietarioPhoto") || photoURL) : photoURL;
-
     const targetSource = userProcess || colab;
+    const isOwner = isSuperBossUser(currentUser) || currentUser.isOwner;
+    // O nome real do utilizador logado tem prioridade máxima
+    const realUserName =
+      currentUser.nomeCompleto ||
+      currentUser.nome ||
+      currentUser.name ||
+      targetSource?.nomeCompleto ||
+      targetSource?.nome ||
+      targetSource?.name ||
+      currentUser.displayName ||
+      (isOwner ? localStorage.getItem("proprietarioName") : null) ||
+      "Utilizador";
+
+    const realUserPhoto =
+      photoURL ||
+      currentUser.photoURL ||
+      currentUser.fotoUrl ||
+      currentUser.foto ||
+      currentUser.photo ||
+      targetSource?.fotoUrl ||
+      targetSource?.foto ||
+      (isOwner ? localStorage.getItem("proprietarioPhoto") : null);
+
     return {
       ...currentUser,
-      name: systemOwnerName,
-      nome: systemOwnerName,
+      name: realUserName,
+      nome: realUserName,
+      nomeReal: realUserName,
       role,
-      photoURL: systemOwnerPhoto,
+      photoURL: realUserPhoto,
       title:
         targetSource?.title ||
         targetSource?.cargoChefia ||
@@ -306,16 +328,20 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Instituição Dinâmica (Movido de MainHeader para App)
+  // Instituição Dinâmica do Utilizador Logado
   useEffect(() => {
-    const instId = currentUser?.instituicaoId || "isps";
+    const instId = currentUser?.instituicaoId || currentUser?.instituicao || (typeof window !== "undefined" ? localStorage.getItem("sigep_active_instituicao_id") : null) || "isps";
     let unsub = () => {};
     
     try {
       unsub = firestoreService.instituicoes.subscribe((insts: any[]) => {
         setInstituicoes(insts);
         if (insts && insts.length > 0) {
-          const found = insts.find((i) => i.id === instId) || insts[0];
+          const found = insts.find((i) => 
+            (instId && (String(i.id).trim() === String(instId).trim() || i.nome?.toLowerCase() === String(instId).toLowerCase())) ||
+            (currentUser?.instituicao && (i.id === currentUser.instituicao || i.nome?.toLowerCase() === String(currentUser.instituicao).toLowerCase())) ||
+            (currentUser?.instituicaoNome && i.nome?.toLowerCase() === String(currentUser.instituicaoNome).toLowerCase())
+          ) || insts[0];
           if (found) {
             setActiveInst(found);
           }
@@ -330,13 +356,25 @@ export default function App() {
         setActiveInst((prev: any) => ({ ...(prev || {}), ...e.detail.payload }));
       }
     };
+    const handleInstChanged = (e: any) => {
+      const activeId = e?.detail?.instituicaoId || (typeof window !== "undefined" ? localStorage.getItem("sigep_active_instituicao_id") : null);
+      if (activeId && instituicoes.length > 0) {
+        const found = instituicoes.find((i) => i.id === activeId);
+        if (found) setActiveInst(found);
+      }
+    };
+
     window.addEventListener("instituicao_updated", handleInstUpdated);
+    window.addEventListener("instituicao_changed", handleInstChanged);
+    window.addEventListener("sigep_estrutura_updated", handleInstChanged);
 
     return () => {
       unsub();
       window.removeEventListener("instituicao_updated", handleInstUpdated);
+      window.removeEventListener("instituicao_changed", handleInstChanged);
+      window.removeEventListener("sigep_estrutura_updated", handleInstChanged);
     };
-  }, [currentUser?.instituicaoId]);
+  }, [currentUser?.instituicaoId, currentUser?.instituicao, currentUser?.instituicaoNome]);
 
   // Aplicar cores como variáveis CSS (adicionar este efeito)
   useEffect(() => {

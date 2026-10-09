@@ -12,6 +12,7 @@ interface SigepLogoProps {
   forceDefault?: boolean;
   instituicaoId?: string | null;
   instituicaoData?: any;
+  isSuperBoss?: boolean;
 }
 
 export const SigepLogo: React.FC<SigepLogoProps> = ({ 
@@ -23,7 +24,8 @@ export const SigepLogo: React.FC<SigepLogoProps> = ({
   customLogo,
   forceDefault = false,
   instituicaoId = null,
-  instituicaoData = null
+  instituicaoData = null,
+  isSuperBoss = false
 }) => {
   const [activeSystemLogo, setActiveSystemLogo] = useState<string | null>(() => {
     if (customLogo !== undefined) return customLogo;
@@ -206,8 +208,8 @@ export const SigepLogo: React.FC<SigepLogoProps> = ({
     xl: "w-56 h-56",
   }[size] || "w-24 h-24";
 
-  // Se houver logotipo personalizado do SIGEP ativo e não for forçado o padrão original
-  if (!forceDefault && activeSystemLogo) {
+  // Se houver logotipo personalizado do SIGEP ativo e não for forçado o padrão original ou isSuperBoss
+  if (!forceDefault && !isSuperBoss && activeSystemLogo) {
     return (
       <div 
         className={`relative inline-flex items-center justify-center text-center select-none ${dimensions} ${className} ${animated ? "transition-transform duration-300 hover:scale-105" : ""}`}

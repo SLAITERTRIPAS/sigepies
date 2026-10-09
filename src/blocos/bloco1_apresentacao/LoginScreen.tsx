@@ -1447,11 +1447,11 @@ export default function LoginScreen({
             {(() => {
               const activeLogo = systemLogo || currentInst?.logo;
               return activeLogo ? (
-                <div className="flex items-center justify-center bg-transparent overflow-hidden w-12 h-12 shrink-0">
+                <div className="flex items-center justify-center bg-transparent overflow-hidden w-12 h-12 shrink-0 rounded-xl">
                   <img
                     src={activeLogo}
                     alt={currentInst?.nome || "Logotipo SIGEP"}
-                    className="w-full h-full object-contain filter drop-shadow-sm"
+                    className="w-full h-full object-contain filter drop-shadow-sm rounded-xl"
                     referrerPolicy="no-referrer"
                   />
                 </div>

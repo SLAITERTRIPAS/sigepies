@@ -147,7 +147,7 @@ interface PlanoWorkflowViewProps {
   colaboradores?: any[];
   onAddMatrixActivity: (data: any) => Promise<string | undefined>;
   onUpdateMatrixActivity: (id: string, data: any) => Promise<void>;
-  onShowAlert: (msg: string) => void;
+  onShowAlert: (msg: string, type?: string) => void;
   onBack: () => void;
 }
 

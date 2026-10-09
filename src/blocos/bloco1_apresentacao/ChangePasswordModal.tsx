@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Key, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, Key, CheckCircle2, AlertCircle, Eye, EyeOff, Lock } from "lucide-react";
 import { firestoreService } from "../../lib/firestoreService";
 import { safeJSONStringify } from "../../lib/utils";
 import {
@@ -9,6 +9,7 @@ import {
   getDocs,
   doc,
   updateDoc,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
@@ -19,8 +20,12 @@ export default function ChangePasswordModal({
   user: any;
   onClose: () => void;
 }) {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,18 +34,115 @@ export default function ChangePasswordModal({
     e.preventDefault();
     setError("");
 
+    const enteredCurrent = currentPassword.trim();
+    if (!enteredCurrent) {
+      setError("É obrigatório introduzir a sua palavra-passe atual.");
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       setError("As senhas não coincidem.");
       return;
     }
 
     if (newPassword.length < 4) {
-      setError("A palavra-passe deve ter pelo menos 4 caracteres.");
+      setError("A nova palavra-passe deve ter pelo menos 4 caracteres.");
+      return;
+    }
+
+    if (newPassword === enteredCurrent) {
+      setError("A nova palavra-passe deve ser diferente da palavra-passe atual.");
       return;
     }
 
     setLoading(true);
     try {
+      // 1. Validar obrigatoriamente a senha atual antes de alterar
+      let registeredPassword = String(user?.password || "").trim();
+      let registeredPasswordHash = user?.passwordHash || "";
+
+      // Se não estiver diretamente no objeto user, consultar no Firestore
+      if (user?.id) {
+        try {
+          const userDocSnap = await getDoc(doc(db, "users", user.id));
+          if (userDocSnap.exists()) {
+            const data = userDocSnap.data();
+            if (data?.password) registeredPassword = String(data.password).trim();
+            if (data?.passwordHash) registeredPasswordHash = data.passwordHash;
+          }
+        } catch (e) {
+          console.warn("Aviso ao buscar senha no Firestore:", e);
+        }
+      }
+
+      // Se ainda não encontrou, pesquisar por email ou nuit no Firestore
+      if (!registeredPassword && (user?.email || user?.nuit)) {
+        try {
+          const usersRef = collection(db, "users");
+          if (user?.email) {
+            const qEmail = query(
+              usersRef,
+              where("email", "==", String(user.email).toLowerCase().trim())
+            );
+            const snapEmail = await getDocs(qEmail);
+            if (!snapEmail.empty) {
+              const data = snapEmail.docs[0].data();
+              if (data?.password) registeredPassword = String(data.password).trim();
+              if (data?.passwordHash) registeredPasswordHash = data.passwordHash;
+            }
+          }
+          if (!registeredPassword && user?.nuit) {
+            const qNuit = query(usersRef, where("nuit", "==", String(user.nuit).trim()));
+            const snapNuit = await getDocs(qNuit);
+            if (!snapNuit.empty) {
+              const data = snapNuit.docs[0].data();
+              if (data?.password) registeredPassword = String(data.password).trim();
+              if (data?.passwordHash) registeredPasswordHash = data.passwordHash;
+            }
+          }
+        } catch (e) {
+          console.warn("Aviso ao buscar senha por identificadores:", e);
+        }
+      }
+
+      // Fallback para cache local caso ainda esteja indefinida
+      if (!registeredPassword) {
+        try {
+          const storedUser = localStorage.getItem("sigep_logged_in_user");
+          if (storedUser) {
+            const parsed = JSON.parse(storedUser);
+            if (parsed?.password) registeredPassword = String(parsed.password).trim();
+            if (parsed?.passwordHash) registeredPasswordHash = parsed.passwordHash;
+          }
+        } catch (e) {
+          console.warn("Aviso ao ler local storage:", e);
+        }
+      }
+
+      const enteredCurrentHash = firestoreService.hashPassword(enteredCurrent);
+
+      // Verificação da senha atual
+      let isCurrentValid = false;
+      if (registeredPassword && enteredCurrent === registeredPassword) {
+        isCurrentValid = true;
+      } else if (registeredPassword && enteredCurrentHash === registeredPassword) {
+        isCurrentValid = true;
+      } else if (registeredPasswordHash && enteredCurrentHash === registeredPasswordHash) {
+        isCurrentValid = true;
+      } else if (
+        (!registeredPassword || ["1234", "123456", "admin"].includes(registeredPassword)) &&
+        !user?.senhaPadraoBloqueada &&
+        (enteredCurrent === "1234" || enteredCurrent === "123456" || enteredCurrent === "admin")
+      ) {
+        isCurrentValid = true;
+      }
+
+      if (!isCurrentValid) {
+        setError("A palavra-passe atual está incorreta. Verifique e tente novamente.");
+        setLoading(false);
+        return;
+      }
+
       if (user?.id) {
         // Encontrar e atualizar todos os documentos correspondentes a este utilizador no Firestore
         // (tanto o original quanto os duplicados por UID) para evitar dessincronização de senhas.
@@ -254,32 +356,77 @@ export default function ChangePasswordModal({
           )}
 
           <div className="space-y-4">
+            {/* Palavra-passe Atual Obrigatória */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-gray-700 tracking-wider">
-                NOVA PALAVRA-PASSE
+                PALAVRA-PASSE ATUAL <span className="text-red-500">*</span>
               </label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••"
-                className="w-full p-4 bg-gray-50 rounded-xl text-sm border-2 border-gray-100 focus:outline-none focus:border-[#121c60] transition-colors"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Introduza a sua palavra-passe atual"
+                  className="w-full p-4 pr-12 bg-gray-50 rounded-xl text-sm border-2 border-gray-100 focus:outline-none focus:border-[#121c60] transition-colors"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
+                  title={showCurrentPassword ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}
+                >
+                  {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2">
               <label className="block text-xs font-bold text-gray-700 tracking-wider">
-                CONFIRMAR NOVA PALAVRA-PASSE
+                NOVA PALAVRA-PASSE <span className="text-red-500">*</span>
               </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••"
-                className="w-full p-4 bg-gray-50 rounded-xl text-sm border-2 border-gray-100 focus:outline-none focus:border-[#121c60] transition-colors"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo de 4 caracteres"
+                  className="w-full p-4 pr-12 bg-gray-50 rounded-xl text-sm border-2 border-gray-100 focus:outline-none focus:border-[#121c60] transition-colors"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
+                  title={showNewPassword ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}
+                >
+                  {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-gray-700 tracking-wider">
+                CONFIRMAR NOVA PALAVRA-PASSE <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repita a nova palavra-passe"
+                  className="w-full p-4 pr-12 bg-gray-50 rounded-xl text-sm border-2 border-gray-100 focus:outline-none focus:border-[#121c60] transition-colors"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
+                  title={showConfirmPassword ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
           </div>
 

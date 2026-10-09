@@ -1151,7 +1151,7 @@ export default function SobreSistemaView({
                   <img
                     src={previewLogo}
                     alt="Novo Logotipo"
-                    className="max-h-full max-w-full object-contain mx-auto my-auto block transition-transform group-hover:scale-105"
+                    className="max-h-full max-w-full object-contain mx-auto my-auto block transition-transform group-hover:scale-105 rounded-2xl"
                     referrerPolicy="no-referrer"
                   />
                 </div>
@@ -1160,7 +1160,7 @@ export default function SobreSistemaView({
                   <img
                     src={systemLogo}
                     alt="Logotipo Oficial SIGEP"
-                    className="max-h-full max-w-full object-contain mx-auto my-auto block transition-transform group-hover:scale-105"
+                    className="max-h-full max-w-full object-contain mx-auto my-auto block transition-transform group-hover:scale-105 rounded-2xl"
                     referrerPolicy="no-referrer"
                   />
                 </div>

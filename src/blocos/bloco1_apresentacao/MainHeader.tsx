@@ -28,7 +28,6 @@ import {
   ChevronDown,
   Globe,
   UserCog,
-  Search,
   BoxIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -41,7 +40,6 @@ import { firestoreService } from "../../lib/firestoreService";
 import SigepLogo from "../../components/SigepLogo";
 import { getActiveInstituicao, getActiveInstituicaoId, setActiveInstituicaoId } from "../../lib/instituicaoEstruturaService";
 import { getSystemLogo } from "../../lib/logoService";
-import GlobalSearch from "../../components/GlobalSearch";
 import InstitutionalProfileModal from "../../components/modals/InstitutionalProfileModal";
 
 interface MainHeaderProps {
@@ -271,12 +269,20 @@ export default function MainHeader({
     };
   }, []);
 
-  // Instituições registradas para seleção pelo Administrador Geral
-  const [instituicoesList, setInstituicoesList] = useState<any[]>([]);
+  // Instituições registradas para seleção
+  const [instituicoesList, setInstituicoesList] = useState<any[]>(() => instituicoes || []);
   const [activeInstData, setActiveInstData] = useState<any>(() => activeInst || getActiveInstituicao());
 
   useEffect(() => {
-    const handleInstChange = () => {
+    const handleInstChange = (e?: any) => {
+      const activeId = e?.detail?.instituicaoId || (typeof window !== "undefined" ? localStorage.getItem("sigep_active_instituicao_id") : null);
+      if (activeId && instituicoesList.length > 0) {
+        const found = instituicoesList.find((i) => i.id === activeId);
+        if (found) {
+          setActiveInstData(found);
+          return;
+        }
+      }
       setActiveInstData(getActiveInstituicao());
     };
     window.addEventListener("instituicao_changed", handleInstChange);
@@ -285,6 +291,11 @@ export default function MainHeader({
     const unsubInst = firestoreService.instituicoes.subscribe((list: any[]) => {
       if (list && list.length > 0) {
         setInstituicoesList(list);
+        const activeId = typeof window !== "undefined" ? localStorage.getItem("sigep_active_instituicao_id") : null;
+        if (activeId) {
+          const matched = list.find((i) => i.id === activeId);
+          if (matched) setActiveInstData(matched);
+        }
       }
     });
 
@@ -295,36 +306,178 @@ export default function MainHeader({
     };
   }, []);
 
-  // O logotipo do sistema SIGEP pertence ao SISTEMA e nunca se confunde com o da instituição
+  // Instituição do Utilizador Logado
+  const userInstId =
+    user?.instituicaoId ||
+    user?.instituicao ||
+    (typeof window !== "undefined" ? localStorage.getItem("sigep_active_instituicao_id") : null);
+
+  const loggedInst = React.useMemo(() => {
+    const list = instituicoesList.length > 0 ? instituicoesList : (instituicoes || []);
+    if (userInstId && list.length > 0) {
+      const match = list.find(
+        (i) =>
+          (i.id && String(i.id).trim() === String(userInstId).trim()) ||
+          (i.nome && user?.instituicaoNome && i.nome.toLowerCase().trim() === String(user.instituicaoNome).toLowerCase().trim()) ||
+          (i.sigla && user?.instituicao && i.sigla.toLowerCase().trim() === String(user.instituicao).toLowerCase().trim()) ||
+          (i.nome && user?.instituicao && i.nome.toLowerCase().trim() === String(user.instituicao).toLowerCase().trim())
+      );
+      if (match) return match;
+    }
+    if (activeInstData) return activeInstData;
+    if (activeInst) return activeInst;
+    return getActiveInstituicao();
+  }, [user, userInstId, instituicoesList, instituicoes, activeInstData, activeInst]);
+
+  // Logótipo padrão do sistema SIGEP (Fallback)
   const effectiveSystemLogo = systemLogo || getSystemLogo() || "/sigep-logo.svg";
 
-  // Dados da Instituição Ativa (separados do sistema)
-  const currentInst = activeInstData || activeInst || getActiveInstituicao();
-  const instLogo = currentInst?.logo && !currentInst.logo.includes("11zvvpOpZARM1yk_irEDpjJ-qBKlTlhad") ? currentInst.logo : null;
-  const instName = currentInst?.nome || user?.instituicaoNome || "Instituição";
-  const instAbreviatura = currentInst?.abreviatura || currentInst?.sigla || instName;
-  const instSigla = currentInst?.sigla || currentInst?.abreviatura || "";
+  // Logótipo dinâmico da instituição do utilizador logado
+  const rawInstLogo =
+    user?.instituicaoLogo ||
+    user?.instituicaoLogotipo ||
+    user?.instituicaoLogoUrl ||
+    loggedInst?.logo ||
+    loggedInst?.logotipo ||
+    loggedInst?.logoUrl ||
+    loggedInst?.emblema ||
+    activeInst?.logo ||
+    null;
+
+  const validInstLogo =
+    rawInstLogo && !rawInstLogo.includes("11zvvpOpZARM1yk_irEDpjJ-qBKlTlhad")
+      ? rawInstLogo
+      : null;
 
   const isSuperAdmin = isSuperBossUser(user) || user?.isOwner || user?.role === "Proprietário" || user?.role === "Administrador do Sistema" || user?.role === "admin";
   const isInstAdmin = isInstitutionalAdminAccount(user);
   const isAnyAdmin = isSuperAdmin || isInstAdmin;
 
-  const getDisplayName = (u: any) => {
-    const colab = colaboradores.find(
-      (c) =>
-        (u?.nuit && c.nuit && String(c.nuit).trim() === String(u.nuit).trim()) ||
-        (u?.email && c.email && c.email.toLowerCase().trim() === u.email.toLowerCase().trim()) ||
-        (u?.id && c.id && String(c.id).trim() === String(u.id).trim()) ||
-        (u?.name && c.nome && c.nome.toLowerCase().trim() === u.name.toLowerCase().trim())
-    );
-    const rawName = colab?.nome || colab?.name || u?.name || u?.displayName;
-    if (rawName) {
-      const parts = rawName.trim().split(/\s+/);
-      if (parts.length >= 2) return `${parts[0]} ${parts[1]}`;
-      return rawName;
+  // No campo do logotipo do sistema, deve ser aplicado o logotipo da instituição do usuário logado,
+  // EXCETO se o logado for o Administrador Geral (que não pertence a nenhuma instituição e exibe o logotipo do sistema)
+  const headerLogoToDisplay = isSuperAdmin ? effectiveSystemLogo : (validInstLogo || effectiveSystemLogo);
+
+  const instName = isSuperAdmin ? "SIGEP" : (loggedInst?.nome || user?.instituicaoNome || "Instituição");
+  const instAbreviatura = isSuperAdmin ? "ADMINISTRAÇÃO GERAL" : (loggedInst?.abreviatura || loggedInst?.sigla || instName);
+
+  // Nome real do utilizador logado
+  const realUserName = React.useMemo(() => {
+    if (isSuperAdmin) {
+      return user?.nomeReal || user?.nomeCompleto || user?.nome || user?.name || "SLAITER TRIPAS";
     }
-    return u?.id || u?.nuit || "Utilizador";
-  };
+
+    const colab = colaboradores?.find(
+      (c) =>
+        (user?.nuit && c.nuit && String(c.nuit).trim() === String(user.nuit).trim()) ||
+        (user?.email && c.email && c.email.toLowerCase().trim() === user.email.toLowerCase().trim()) ||
+        (user?.id && c.id && String(c.id).trim() === String(user.id).trim()) ||
+        (user?.name && c.nome && c.nome.toLowerCase().trim() === user.name.toLowerCase().trim()) ||
+        (user?.nome && c.nome && c.nome.toLowerCase().trim() === user.nome.toLowerCase().trim())
+    );
+
+    const proc = !colab && processos?.find(
+      (p) =>
+        (user?.nuit && p.nuit && String(p.nuit).trim() === String(user.nuit).trim()) ||
+        (user?.email && p.email && p.email.toLowerCase().trim() === user.email.toLowerCase().trim()) ||
+        (user?.id && p.id && String(p.id).trim() === String(user.id).trim())
+    );
+
+    const target = colab || proc;
+
+    const foundName =
+      user?.nomeReal ||
+      user?.nomeCompleto ||
+      user?.nome ||
+      user?.name ||
+      target?.nomeCompleto ||
+      target?.nome ||
+      target?.name ||
+      user?.displayName;
+
+    if (foundName && String(foundName).trim().length > 0) {
+      return String(foundName).trim();
+    }
+
+    if (user?.email) {
+      const emailPrefix = user.email.split("@")[0].replace(/[._-]/g, " ");
+      return tc(emailPrefix);
+    }
+
+    return user?.nuit ? `Utilizador (${user.nuit})` : "Utilizador";
+  }, [user, colaboradores, processos, isSuperAdmin]);
+
+  // Formato compacto para cabeçalho: Primeiro e Último Nome
+  const shortRealUserName = React.useMemo(() => {
+    if (!realUserName) return "UTILIZADOR";
+    const parts = realUserName.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]} ${parts[parts.length - 1]}`;
+    }
+    return realUserName;
+  }, [realUserName]);
+
+  // Foto real do utilizador logado
+  const realUserPhoto = React.useMemo(() => {
+    if (isSuperAdmin) {
+      return user?.photoURL || user?.fotoUrl || user?.foto || user?.photo || null;
+    }
+
+    const colab = colaboradores?.find(
+      (c) =>
+        (user?.nuit && c.nuit && String(c.nuit).trim() === String(user.nuit).trim()) ||
+        (user?.email && c.email && c.email.toLowerCase().trim() === user.email.toLowerCase().trim()) ||
+        (user?.id && c.id && String(c.id).trim() === String(user.id).trim())
+    );
+    const proc = !colab && processos?.find(
+      (p) =>
+        (user?.nuit && p.nuit && String(p.nuit).trim() === String(user.nuit).trim()) ||
+        (user?.email && p.email && p.email.toLowerCase().trim() === user.email.toLowerCase().trim())
+    );
+
+    return (
+      user?.photoURL ||
+      user?.fotoUrl ||
+      user?.foto ||
+      user?.photo ||
+      colab?.fotoUrl ||
+      colab?.foto ||
+      proc?.fotoUrl ||
+      proc?.foto ||
+      null
+    );
+  }, [user, colaboradores, processos, isSuperAdmin]);
+
+  // Iniciais do utilizador logado para avatar elegante
+  const userInitials = React.useMemo(() => {
+    if (!realUserName) return "U";
+    const parts = realUserName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return realUserName.substring(0, 2).toUpperCase();
+  }, [realUserName]);
+
+  // Cargo real do utilizador logado
+  const realUserCargo = React.useMemo(() => {
+    if (isSuperAdmin) {
+      return user?.cargoChefia || user?.cargo || user?.role || user?.title || "Proprietário, Programador e Administrador Geral";
+    }
+
+    const colab = colaboradores?.find(
+      (c) =>
+        (user?.nuit && c.nuit && String(c.nuit).trim() === String(user.nuit).trim()) ||
+        (user?.email && c.email && c.email.toLowerCase().trim() === user.email.toLowerCase().trim())
+    );
+    return (
+      user?.cargoChefia ||
+      user?.cargo ||
+      user?.role ||
+      user?.title ||
+      colab?.cargoChefia ||
+      colab?.cargo ||
+      "Colaborador Autorizado"
+    );
+  }, [user, colaboradores, isSuperAdmin]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -445,7 +598,7 @@ export default function MainHeader({
       <InstitutionalProfileModal 
         isOpen={showInstProfileModal}
         onClose={() => setShowInstProfileModal(false)}
-        instituicao={currentInst}
+        instituicao={loggedInst}
       />
       <header
         className="w-full flex flex-col flex-none z-50 shadow-2xl relative transition-all duration-500"
@@ -455,82 +608,46 @@ export default function MainHeader({
         }}
       >
         <div className="w-full flex justify-between items-center px-4 py-2 gap-4">
-          {/* Left - SIGEP Logo & Search */}
-          <div className="flex items-center gap-6 shrink-0 flex-1">
-            {/* 1. Logotipo SISTEMA (SIGEP) */}
+          {/* Lado Esquerdo - Logótipo do Cabeçalho (Sistema se for Administrador Geral, caso contrário, Instituição Logada) */}
+          <div className="flex items-center gap-4 shrink-0 flex-1">
             <div 
               onClick={() => {
-                window.dispatchEvent(new CustomEvent("open_view", { detail: { view: "dashboard" } }));
+                if (isSuperAdmin) {
+                  window.dispatchEvent(new CustomEvent("open_view", { detail: { view: "dashboard" } }));
+                } else if (isAnyAdmin) {
+                  setShowInstProfileModal(true);
+                } else {
+                  window.dispatchEvent(new CustomEvent("open_view", { detail: { view: "dashboard" } }));
+                }
               }}
-              className="flex items-center gap-3 cursor-pointer group"
+              className="flex items-center gap-3 cursor-pointer group select-none shrink-0 transition-all duration-300 hover:scale-[1.02] active:scale-98"
+              title={isSuperAdmin ? "Painel de Administração Geral SIGEP" : `Instituição Logada: ${instName}`}
             >
-              <div className="relative w-12 h-12 flex items-center justify-center">
-                {/* 3D Cube Icon Simulation */}
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-600 to-blue-700 rounded-xl rotate-12 shadow-lg group-hover:rotate-0 transition-transform duration-300"></div>
-                <div className="absolute inset-0 bg-white/20 rounded-xl backdrop-blur-sm -rotate-6 group-hover:rotate-0 transition-transform duration-300"></div>
-                <BoxIcon className="relative w-8 h-8 text-white drop-shadow-md" />
-              </div>
-              <div className="flex flex-col">
-                <h1 className="text-2xl font-black tracking-tighter text-white leading-none italic">
-                  SIGEP
-                </h1>
-                <span className="text-[9px] font-bold tracking-[0.3em] text-blue-400 uppercase leading-none mt-1">
-                  SISTEMA
-                </span>
-              </div>
-            </div>
-
-            {/* 2. Logotipo e Identidade da INSTITUIÇÃO ATIVA - Oculto para Administrador Geral conforme solicitado */}
-            {!isSuperAdmin && (
-              <>
-                {/* Separador Vertical */}
-                <div className="h-10 w-px bg-white/10" />
-
-                <button 
-                  onClick={() => isAnyAdmin && setShowInstProfileModal(true)}
-                  disabled={!isAnyAdmin}
-                  className={`flex items-center gap-3 min-w-0 group/inst transition-all ${isAnyAdmin ? 'cursor-pointer hover:bg-white/5 p-1 rounded-xl' : 'cursor-default'}`}
-                  title={isAnyAdmin ? "Clique para gerir o perfil da instituição" : instName}
-                >
-                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10 group-hover/inst:border-blue-500/50 transition-all">
-                    {instLogo ? (
-                      <img
-                        src={instLogo}
-                        alt={`Logotipo da ${instName}`}
-                        className="w-full h-full object-contain p-1"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <Building2 size={20} className="text-blue-400" />
-                    )}
-                  </div>
-                  <div className="flex flex-col min-w-0 text-left">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest leading-none">Instituição</span>
-                      {isAnyAdmin && <Settings size={8} className="text-white/20 group-hover/inst:text-blue-400 animate-pulse" />}
-                    </div>
-                    <h3 className="text-xs font-black text-white truncate max-w-[150px] uppercase tracking-wide group-hover/inst:text-blue-200 transition-colors">
-                      {instAbreviatura}
-                    </h3>
-                  </div>
-                </button>
-              </>
-            )}
-
-            {/* Separador Vertical Final antes da Pesquisa */}
-            <div className="h-10 w-px bg-white/10" />
-
-            {/* BARRA DE PESQUISA CENTRAL (Estilo Imagem) */}
-            <div className="hidden lg:flex flex-1 max-w-[400px]">
-              <div className="relative w-full group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-white/40 group-focus-within:text-blue-400 transition-colors" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="O que desejas encontrar?"
-                  className="block w-full bg-black/30 border border-white/10 text-white text-xs rounded-full py-2.5 pl-10 pr-4 focus:ring-2 focus:ring-blue-500/50 focus:bg-black/50 transition-all placeholder:text-white/30 outline-none"
+              {/* Campo do Logótipo com o Logótipo do Sistema ou da Instituição Logada */}
+              <div className="relative flex items-center justify-center p-1.5 rounded-xl bg-white/5 border border-white/10 group-hover:border-blue-400/50 group-hover:bg-white/10 transition-all shadow-md">
+                <img
+                  src={headerLogoToDisplay}
+                  alt={instName}
+                  className="h-10 md:h-12 w-auto max-w-[150px] object-contain drop-shadow-md transition-all duration-300 group-hover:brightness-110 rounded-xl"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/sigep-logo.svg";
+                  }}
                 />
+              </div>
+
+              {/* Identificação Dinâmica da Instituição ou Administração Geral */}
+              <div className="flex flex-col min-w-0 text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest leading-none">
+                    {isSuperAdmin ? "SISTEMA DE GESTÃO INTEGRADA" : "INSTITUIÇÃO LOGADA"}
+                  </span>
+                  {isAnyAdmin && !isSuperAdmin && (
+                    <Settings size={9} className="text-white/30 group-hover:text-blue-400 transition-colors animate-pulse" />
+                  )}
+                </div>
+                <h3 className="text-xs md:text-sm font-black text-white truncate max-w-[200px] sm:max-w-[280px] uppercase tracking-wide group-hover:text-blue-200 transition-colors">
+                  {isSuperAdmin ? "PAINEL ADMINISTRADOR GERAL" : instAbreviatura}
+                </h3>
               </div>
             </div>
           </div>
@@ -552,138 +669,207 @@ export default function MainHeader({
             </div>
           </div>
 
-          {/* Right - Controls and User */}
+          {/* Right - User and Controls */}
           <div className="flex items-center gap-4 flex-1 justify-end">
+            {/* User Profile - Nome e Foto Reais do Utilizador Logado */}
+            {user ? (
+              <div className="flex items-center gap-3 mr-2 animate-in fade-in duration-300">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="flex items-center gap-3 p-1 pr-3 rounded-full bg-white/5 hover:bg-white/10 transition-all border border-white/10 group cursor-pointer"
+                    title={`Utilizador: ${realUserName} (${realUserCargo})`}
+                  >
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full border-2 border-blue-500/50 overflow-hidden shadow-lg group-hover:border-blue-400 transition-all flex items-center justify-center bg-slate-800/40">
+                        {realUserPhoto ? (
+                          <img 
+                            src={realUserPhoto} 
+                            alt={realUserName}
+                            className="w-full h-full object-cover" 
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          // Mostra a área da foto vazia (sem foto nem iniciais), mas o nome sim
+                          <div className="w-full h-full bg-transparent"></div>
+                        )}
+                      </div>
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#0a0f1d] rounded-full shadow-sm"></div>
+                    </div>
+                    <div className="hidden lg:flex flex-col items-start leading-none text-left">
+                      <span className="text-[11px] font-black text-white tracking-wide uppercase">
+                        {shortRealUserName}
+                      </span>
+                      <span className="text-[8px] font-bold text-emerald-400 uppercase mt-0.5">
+                        ON-LINE
+                      </span>
+                    </div>
+                    <ChevronDown size={14} className="text-white/40 group-hover:text-white transition-colors" />
+                  </button>
+
+                  {/* Dropdown Menu Dinâmico do Utilizador Logado */}
+                  <AnimatePresence>
+                    {showMenu && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute right-0 mt-2 w-64 bg-slate-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-[60]"
+                      >
+                        <div className="px-4 py-3 border-b border-white/5 bg-white/5">
+                          <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Utilizador Conectado</p>
+                          <p className="text-xs font-black text-white mt-0.5 break-words">{realUserName}</p>
+                          <p className="text-[10px] font-bold text-blue-400 mt-1">{realUserCargo}</p>
+                          {user?.email && (
+                            <p className="text-[9px] text-white/40 truncate mt-0.5">{user.email}</p>
+                          )}
+                          <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
+                            <span className="text-[8px] font-bold text-amber-400/80 uppercase">Instituição</span>
+                            <span className="text-[9px] font-black text-white truncate max-w-[140px] uppercase">{instAbreviatura}</span>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => { setShowPasswordModal(true); setShowMenu(false); }} 
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-bold text-white/70 hover:bg-white/5 hover:text-white transition-all text-left cursor-pointer"
+                        >
+                          <Settings size={14} /> Alterar Palavra-passe
+                        </button>
+                        <button 
+                          onClick={onLogout} 
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-bold text-red-400 hover:bg-red-500/10 transition-all text-left cursor-pointer"
+                        >
+                          <LogOut size={14} /> Terminar Sessão
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            ) : null}
+
             {/* System Actions */}
-            <div className="flex items-center gap-1.5 bg-black/20 p-1 rounded-lg border border-white/5">
+            <div className="flex items-center gap-2 bg-black/20 p-1.5 rounded-xl border border-white/5">
               <button
                 onClick={onSync}
                 title="Sincronizar"
-                className="px-2 py-1 flex items-center gap-1 text-[10px] font-black text-blue-400 border border-blue-500/30 rounded hover:bg-blue-500/10 transition-all"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-500/40 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all shadow-sm"
               >
-                <RefreshCcw size={12} className={isSyncing ? "animate-spin" : ""} />
-                <span>SINC</span>
+                <RefreshCcw size={15} className={isSyncing ? "animate-spin" : ""} />
               </button>
               <button
                 onClick={onOpenBackup}
                 title="Base de Dados"
-                className="px-2 py-1 flex items-center gap-1 text-[10px] font-black text-slate-300 border border-slate-500/30 rounded hover:bg-slate-500/10 transition-all"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 transition-all shadow-sm"
               >
-                <Database size={12} />
-                <span>DB</span>
+                <Database size={15} />
               </button>
-              
-              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-white/10">
-                <button
-                  onClick={onMinimize}
-                  className="w-6 h-6 flex items-center justify-center rounded bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 transition-all"
-                >
-                  <Minus size={14} strokeWidth={3} />
-                </button>
-                <button
-                  onClick={toggleFullscreen}
-                  className="w-6 h-6 flex items-center justify-center rounded bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/40 transition-all"
-                >
-                  {isFullscreen ? <Minimize2 size={14} strokeWidth={3} /> : <Maximize2 size={14} strokeWidth={3} />}
-                </button>
-                <button
-                  onClick={onLogout}
-                  className="w-6 h-6 flex items-center justify-center rounded bg-red-500/20 text-red-500 hover:bg-red-500/40 transition-all"
-                >
-                  <X size={14} strokeWidth={3} />
-                </button>
-              </div>
-            </div>
-
-            {/* User Profile */}
-            <div className="flex items-center gap-3 ml-2">
-              <div className="relative">
-                <button
-                  onClick={() => setShowMenu(!showMenu)}
-                  className="flex items-center gap-3 p-1 pr-3 rounded-full bg-white/5 hover:bg-white/10 transition-all border border-white/10 group"
-                >
-                  <div className="relative">
-                    <div className="w-10 h-10 rounded-full border-2 border-blue-500/50 overflow-hidden shadow-lg group-hover:border-blue-400 transition-all">
-                      {systemOwnerPhoto ? (
-                        <img src={systemOwnerPhoto} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-slate-800 flex items-center justify-center text-white">
-                          <User size={20} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#0a0f1d] rounded-full shadow-sm"></div>
-                  </div>
-                  <div className="hidden lg:flex flex-col items-start leading-none">
-                    <span className="text-[11px] font-black text-white tracking-wide uppercase">
-                      {systemOwnerName}
-                    </span>
-                    <span className="text-[8px] font-bold text-emerald-400 uppercase mt-0.5">
-                      ON-LINE
-                    </span>
-                  </div>
-                  <ChevronDown size={14} className="text-white/40 group-hover:text-white transition-colors" />
-                </button>
-
-                {/* Dropdown Menu Simplificado */}
-                <AnimatePresence>
-                  {showMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute right-0 mt-2 w-56 bg-slate-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-[60]"
-                    >
-                      <div className="px-4 py-3 border-b border-white/5 bg-white/5">
-                        <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Nível de Acesso</p>
-                        <p className="text-xs font-black text-blue-400 mt-0.5">{systemOwnerCargo}</p>
-                      </div>
-                      <button onClick={() => { setShowPasswordModal(true); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-bold text-white/70 hover:bg-white/5 hover:text-white transition-all text-left">
-                        <Settings size={14} /> Alterar Palavra-passe
-                      </button>
-                      <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-bold text-red-400 hover:bg-red-500/10 transition-all text-left">
-                        <LogOut size={14} /> Terminar Sessão
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Notification Badge */}
-              <div className="relative">
-                <button className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/10 text-white/70 hover:text-white relative">
-                  <Bell size={20} />
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse"></span>
-                </button>
-              </div>
+              <button
+                onClick={onMinimize}
+                title="Minimizar"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all shadow-sm"
+              >
+                <Minus size={15} strokeWidth={3} />
+              </button>
+              <button
+                onClick={toggleFullscreen}
+                title="Ecrã Completo / Restaurar"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all shadow-sm"
+              >
+                {isFullscreen ? <Minimize2 size={15} strokeWidth={2.5} /> : <Maximize2 size={15} strokeWidth={2.5} />}
+              </button>
+              <button
+                onClick={onLogout}
+                title="Terminar Sessão / Sair"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all shadow-sm"
+              >
+                <LogOut size={15} strokeWidth={2.5} />
+              </button>
             </div>
           </div>
         </div>
 
         {/* Barra Inferior do Cabeçalho */}
-        <div className="w-full px-4 py-2 bg-black/30 border-t border-white/5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-blue-500/20 rounded-lg text-blue-400">
+        <div className="w-full px-4 py-2 bg-black/30 border-t border-white/5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            {/* Botão Voltar que acompanha a navegação */}
+            <button
+              onClick={() => {
+                if (onBack) {
+                  onBack();
+                } else if (typeof window !== "undefined" && window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  window.dispatchEvent(new CustomEvent("open_view", { detail: { view: "menu" } }));
+                }
+              }}
+              title="Voltar à tela ou menu anterior"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 hover:text-white border border-blue-400/30 hover:border-blue-400/60 transition-all font-bold text-xs shadow-sm active:scale-95 group shrink-0 cursor-pointer"
+            >
+              <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+              <span>Voltar</span>
+            </button>
+
+            <div className="p-1.5 bg-blue-500/20 rounded-lg text-blue-400 shrink-0">
               <Globe size={16} />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">Início /</span>
-              <h2 className="text-sm font-black text-white tracking-widest uppercase italic">
-                {title || "RECEPÇÃO DE DOCUMENTOS"}
+
+            {/* Trilha de Navegação (Início / Sistema / Submenus / Título) */}
+            <div className="flex items-center gap-2 min-w-0 overflow-x-auto scrollbar-none py-0.5">
+              <button
+                onClick={() => {
+                  if (onBreadcrumbClick) {
+                    onBreadcrumbClick(0, "Início");
+                  } else {
+                    window.dispatchEvent(new CustomEvent("open_view", { detail: { view: "menu" } }));
+                  }
+                }}
+                className="text-[11px] font-black text-white/50 hover:text-white uppercase tracking-wider transition-colors cursor-pointer shrink-0"
+                title="Ir para o Início / Menu Principal"
+              >
+                Início
+              </button>
+
+              {breadcrumb && breadcrumb.length > 0 ? (
+                breadcrumb.map((crumb, idx) => (
+                  <React.Fragment key={idx}>
+                    <span className="text-white/30 text-xs shrink-0">/</span>
+                    <button
+                      onClick={() => onBreadcrumbClick?.(idx, crumb)}
+                      className="text-[11px] font-bold text-white/70 hover:text-white uppercase tracking-wide truncate max-w-[160px] transition-colors cursor-pointer shrink-0"
+                      title={crumb}
+                    >
+                      {crumb}
+                    </button>
+                  </React.Fragment>
+                ))
+              ) : null}
+
+              <span className="text-white/30 text-xs shrink-0">/</span>
+              <h2 className="text-xs sm:text-sm font-black text-white tracking-widest uppercase italic truncate">
+                {title || "SISTEMA"}
               </h2>
             </div>
           </div>
 
-          {/* IA Quântica Status (Estilo Imagem) */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 rounded-xl">
+          {/* IA Quântica Status e Notificações Recebidas */}
+          <div className="flex items-center gap-4 shrink-0">
+            {/* Botão de Notificações Recebidas do Sistema */}
+            <NotificationCenter
+              user={user}
+              triggerClassName="p-2.5 rounded-xl bg-indigo-900/50 hover:bg-indigo-900/70 transition-all border border-indigo-500/30 text-indigo-200 hover:text-white relative cursor-pointer"
+              unreadMessagesCount={unreadMessagesCount}
+              onOpenMessages={onOpenMessages}
+            />
+            <div className="flex items-center gap-3 bg-indigo-600/20 border border-indigo-500/30 px-4 py-1.5 rounded-xl">
               <div className="flex flex-col items-end leading-none">
-                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">IA QUÂNTICA</span>
+                <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">IA QUÂNTICA</span>
                 <span className="text-[7px] font-bold text-emerald-400 uppercase mt-0.5">SISTEMA ON-LINE</span>
               </div>
               <div className="relative w-8 h-8 flex items-center justify-center">
                 <div className="absolute inset-0 bg-indigo-500/20 rounded-full animate-ping"></div>
-                <div className="relative w-full h-full bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg border border-indigo-400/30">
+                <div className="relative w-full h-full bg-indigo-700 rounded-lg flex items-center justify-center shadow-lg border border-indigo-500/30">
                   <Cpu size={16} className="text-white" />
                 </div>
               </div>

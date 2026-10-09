@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { firestoreService } from "../../lib/firestoreService";
 import { optimizeImageForFirestore, removeImageBackground } from "../../lib/imageUtils";
-import { PROVINCIAS } from "../../constants/formOptions";
+import { PROVINCIAS_LIST } from "../../constants/formOptions";
 import { extractDominantColorsFromImage } from "../../lib/utils";
 
 interface InstitutionalProfileModalProps {
@@ -332,7 +332,7 @@ export const InstitutionalProfileModal: React.FC<InstitutionalProfileModalProps>
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer appearance-none"
                   >
                     <option value="">Selecione a Província...</option>
-                    {PROVINCIAS.map(p => (
+                    {PROVINCIAS_LIST.map(p => (
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
