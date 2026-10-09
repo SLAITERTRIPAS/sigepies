@@ -709,7 +709,6 @@ export default function SistemaView({
     { title: "Gestão de Utilizadores", icon: Users },
     { title: "Gestão de Produtos e Preços", icon: Box },
     { title: "Estrutura Hierárquica", icon: Network },
-    { title: "Histórico de Chefias", icon: Clock },
     { title: "Template de Resumo", icon: Layout },
     { title: "Atualização", icon: Zap },
     { title: "Base de Dados", icon: Database },
@@ -729,7 +728,6 @@ export default function SistemaView({
     { title: "Gestão de Utilizadores", icon: Users, hidden: isGlobalAdmin ? false : !canManageUsers },
     { title: "Gestão de Produtos e Preços", icon: Box, hidden: isGlobalAdmin ? false : !(canManageUsers || isUGEAUser) },
     { title: "Estrutura Hierárquica", icon: Network, hidden: !isGlobalAdmin },
-    { title: "Histórico de Chefias", icon: Clock },
     { title: "Atualização", icon: Zap, hidden: isGlobalAdmin ? false : !canManageUsers },
     {
       title: "Registar",

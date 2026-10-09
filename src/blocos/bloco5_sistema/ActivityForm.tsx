@@ -576,7 +576,10 @@ export default function ActivityForm({
       (user ? getUserWorkspace(user) : "");
     const nextNum = calculateNextNum(plannedActivitiesProp, targetArea, user ? getUserWorkspace(user) : "");
     if (initialData) {
+      const fixedActivityId = initialData.activityId || initialData.id || undefined;
       return {
+        id: fixedActivityId,
+        activityId: fixedActivityId,
         unidadeCentral: initialData.unidadeCentral || "",
         unidadeOrganica:
           initialData.unidadeOrganica || initialData.selectedCategory || "",
@@ -7111,12 +7114,17 @@ export default function ActivityForm({
                     String(selectedCategory || "").toLowerCase().includes("ugea") ||
                     String(sectorName || "").toLowerCase().includes("ugea");
                   const finalDepartamento = formData.departamento || userDept || (isUgeaArea ? "Unidade Gestora e Executora de Aquisições" : "Departamento Geral");
-                  const finalDirecao = formData.direcao || formData.unidadeSelecionada || userDir || "Direção Geral";
+                  const rawDir = formData.direcao || formData.unidadeSelecionada || userDir || "Gabinete do Diretor-Geral";
+                  const finalDirecao = (rawDir.toLowerCase().includes("direção geral") || rawDir.toLowerCase().includes("direcao geral")) ? "Gabinete do Diretor-Geral" : rawDir;
                   const finalUnidade = formData.unidadeOrganica || formData.unidadeCentral || userUnidade || selectedCategory || "Songo";
+
+                  const permanentActivityId = initialData?.activityId || initialData?.id || formData.activityId || formData.id || undefined;
 
                   const submissionData: any = {
                     ...formData,
                     ...calculateTotalActivityData(months, formData),
+                    id: permanentActivityId,
+                    activityId: permanentActivityId,
                     title: formData.nomeActividade,
                     nActividade: formData.numeroActividade,
                     selectedCategory,
@@ -7129,10 +7137,11 @@ export default function ActivityForm({
                     direcao: finalDirecao,
                     unidadeOrganica: finalUnidade,
                     unidadeSelecionada: finalDirecao,
-                    // Não enviar imediatamente: guardar no plano setorial para submissão posterior
-                    submetido: false,
-                    status: initialData?.status || formData.status || "setorial",
-                    guardadoParaSubmissaoPosterior: true,
+                    // Submetido pelo setor que planifica para atualização automática dos resumos
+                    submetido: true,
+                    status: initialData?.status && initialData.status !== "rascunho" ? initialData.status : (formData.status || "submetido"),
+                    dataSubmissao: new Date().toISOString(),
+                    guardadoParaSubmissaoPosterior: false,
                     dataCriacao: initialData?.dataCriacao || new Date().toISOString(),
                     dataAtualizacao: new Date().toISOString(),
                     criadoPor: user?.nome || user?.name || user?.email || "Colaborador",

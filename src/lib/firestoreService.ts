@@ -530,7 +530,7 @@ export async function updateInCollection<T>(
       {
         ...cleanData,
         userId: auth.currentUser?.uid || undefined,
-        tenantId: "Songo",
+        tenantId: getInstituicaoId(),
         updatedAt: serverTimestamp(),
         synced: true
       },
@@ -785,6 +785,34 @@ function createCollectionService<T>(
       }
     },
     add: async (data: any) => {
+      // Unicidade Soberana para 'matrix_activities', 'actividades' e 'plano_actividades'
+      if (collectionName === "matrix_activities" || collectionName === "actividades" || collectionName === "plano_actividades") {
+        const targetId = data.id || data.activityId;
+        if (targetId) {
+          console.log(`[Unicidade] Atividade existente com chave única (${targetId}). Executando UPDATE.`);
+          await updateInCollection(collectionName, targetId, { ...data, id: targetId });
+          return targetId;
+        }
+
+        // Validação contra duplicação de atividade pela referência oficial
+        const ref = data.referencia || data.codigoActividade || data.codigo;
+        if (ref && ref !== "-" && ref !== "ACT") {
+          try {
+            const colRef = collection(db, collectionName);
+            const qRef = query(colRef, where("referencia", "==", ref), limit(1));
+            const snap = await getDocs(qRef);
+            if (!snap.empty) {
+              const existingId = snap.docs[0].id;
+              console.log(`[Anti-Duplicação] Atividade com referência "${ref}" encontrada (${existingId}). Executando UPDATE.`);
+              await updateInCollection(collectionName, existingId, { ...data, id: existingId });
+              return existingId;
+            }
+          } catch (e) {
+            console.warn("Aviso ao validar duplicado de atividade:", e);
+          }
+        }
+      }
+
       // Unicidade Soberana para 'users' e 'colaboradores'
       if ((collectionName === "users" || collectionName === "colaboradores") && (data.email || data.nuit)) {
         try {

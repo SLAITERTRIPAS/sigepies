@@ -185,52 +185,143 @@ export const cleanAreaText = (s: any): string =>
     .trim();
 
 /**
- * Verifica com rigor se uma actividade pertence ao setor ou departamento do utilizador.
+ * Obtém a lista de todas as designações de setor/repartição associadas ao utilizador.
+ */
+export const getUserSectors = (user: any): string[] => {
+  if (!user) return [];
+  const list: string[] = [];
+  if (user.setor) list.push(String(user.setor));
+  if (user.sector) list.push(String(user.sector));
+  if (user.reparticao) list.push(String(user.reparticao));
+  if (user.seccao) list.push(String(user.seccao));
+  if (user.areaDeAfetacao && user.areaDeAfetacao !== "Nenhum" && user.areaDeAfetacao !== "-") {
+    list.push(String(user.areaDeAfetacao));
+  }
+  if (Array.isArray(user.setoresAtribuidos)) {
+    user.setoresAtribuidos.forEach((s: any) => {
+      if (s) list.push(String(s));
+    });
+  }
+  return Array.from(new Set(list));
+};
+
+/**
+ * Obtém a lista de todas as designações de setor/área presentes numa atividade.
+ */
+export const getActivitySectors = (activity: any): string[] => {
+  if (!activity) return [];
+  const list: string[] = [];
+  if (activity.setor) list.push(String(activity.setor));
+  if (activity.sector) list.push(String(activity.sector));
+  if (activity.reparticao) list.push(String(activity.reparticao));
+  if (activity.seccao) list.push(String(activity.seccao));
+  if (activity.origem) list.push(String(activity.origem));
+  if (activity.setorOrigin) list.push(String(activity.setorOrigin));
+  if (activity.setorCriador) list.push(String(activity.setorCriador));
+  if (activity.submetidoPorSetor) list.push(String(activity.submetidoPorSetor));
+  if (activity.solicitante) list.push(String(activity.solicitante));
+  if (activity.area) list.push(String(activity.area));
+  return Array.from(new Set(list));
+};
+
+/**
+ * Compara dois nomes de setor ou repartição com tolerância a variações textuais, prefixos e plurais.
+ */
+export const compareSectorsMatch = (secA: string, secB: string): boolean => {
+  if (!secA || !secB) return false;
+  const rawA = String(secA).toLowerCase().trim();
+  const rawB = String(secB).toLowerCase().trim();
+  if (rawA === rawB) return true;
+
+  const cleanA = cleanAreaText(secA).replace(/\s+/g, "");
+  const cleanB = cleanAreaText(secB).replace(/\s+/g, "");
+  if (!cleanA || !cleanB) return false;
+  if (cleanA === cleanB) return true;
+
+  // Tolerância singular / plural (ex.: transporte / transportes)
+  const stemA = cleanA.endsWith("s") ? cleanA.slice(0, -1) : cleanA;
+  const stemB = cleanB.endsWith("s") ? cleanB.slice(0, -1) : cleanB;
+  if (stemA === stemB) return true;
+
+  // Tolerância de substring com comprimento mínimo de 3 caracteres
+  if (cleanA.length >= 3 && cleanB.length >= 3) {
+    if (cleanA.includes(cleanB) || cleanB.includes(cleanA)) return true;
+    if (stemA.includes(stemB) || stemB.includes(stemA)) return true;
+  }
+  return false;
+};
+
+/**
+ * Verifica com rigor e abrangência se uma actividade pertence ao setor ou departamento do utilizador logado.
  */
 export const isActivityFromUserSector = (activity: any, user: any): boolean => {
   if (!activity || !user) return false;
 
+  // 1. Criador ou autor direto tem acesso soberano à sua própria atividade
+  const creatorEmail = String(activity.createdBy || activity.emailCriador || activity.autorEmail || activity.responsavelEmail || "").toLowerCase().trim();
+  const uEmail = String(user.email || "").toLowerCase().trim();
+  if (creatorEmail && uEmail && creatorEmail === uEmail) return true;
+
+  const creatorName = String(activity.createdByName || activity.autor || activity.autorNome || activity.planificadoPor || activity.criadoPor || "").toLowerCase().trim();
+  const uName = String(user.nome || user.name || user.displayName || "").toLowerCase().trim();
+  if (creatorName && uName && (creatorName === uName || creatorName.includes(uName) || uName.includes(creatorName))) return true;
+
+  const uId = String(user.uid || user.id || "").trim();
+  const actUserId = String(activity.userId || activity.userUid || activity.uid || "").trim();
+  if (uId && actUserId && uId === actUserId) return true;
+
+  const uNuit = String(user.nuit || "").trim();
+  const actNuit = String(activity.nuit || activity.nuitCriador || "").trim();
+  if (uNuit && actNuit && uNuit === actNuit) return true;
+
+  // 2. Isolamento de competências da UGEA
   const aDept = cleanAreaText(activity.departamento || activity.solicitante || activity.unidade || activity.orgao || "");
   const aSec = cleanAreaText(activity.setor || activity.sector || activity.reparticao || "");
   const aOrig = cleanAreaText(activity.origem || activity.setorOrigin || activity.setorCriador || activity.unidadeOrganica || "");
 
   const uDept = cleanAreaText(user.departamento || "");
-  const uSec = cleanAreaText(user.setor || user.reparticao || "");
+  const uSec = cleanAreaText(user.setor || user.sector || user.reparticao || "");
   const uArea = cleanAreaText(user.areaDeAfetacao || "");
 
-  // Verificar se o criador é o próprio utilizador ou autor
-  const creatorEmail = String(activity.createdBy || activity.emailCriador || activity.autorEmail || "").toLowerCase().trim();
-  const uEmail = String(user.email || "").toLowerCase().trim();
-  if (creatorEmail && uEmail && creatorEmail === uEmail) return true;
-
-  // Distinção soberana: UGEA vs DPEP vs Outros
   const isActUgea = aDept.includes("ugea") || aSec.includes("ugea") || aOrig.includes("ugea") || aDept.includes("aquisicoes") || aSec.includes("aquisicoes");
   const isUserUgea = uDept.includes("ugea") || uSec.includes("ugea") || uArea.includes("ugea") || uDept.includes("aquisicoes") || uSec.includes("aquisicoes");
   if (isActUgea || isUserUgea) {
     return isActUgea === isUserUgea;
   }
 
-  const isActDpep = aDept.includes("dpep") || aSec.includes("dpep") || aOrig.includes("dpep") || aDept.includes("planifica") || aSec.includes("planifica");
-  const isUserDpep = uDept.includes("dpep") || uSec.includes("dpep") || uArea.includes("dpep") || uDept.includes("planifica") || uSec.includes("planifica");
-  if (isActDpep || isUserDpep) {
-    return isActDpep === isUserDpep;
+  // 3. REGRA OFICIAL SOLICITADA: Todas as actividades planificadas para o setor logado
+  // devem estar visíveis no plano de actividades!
+  const userSectorList = getUserSectors(user);
+  const actSectorList = getActivitySectors(activity);
+
+  if (userSectorList.length > 0 && actSectorList.length > 0) {
+    for (const uS of userSectorList) {
+      for (const aS of actSectorList) {
+        if (compareSectorsMatch(uS, aS)) {
+          return true;
+        }
+      }
+    }
   }
 
-  // Comparação estrita por setor / repartição do utilizador para evitar mistura de setores
-  // Usamos match exato se possível, ou verificação de inclusão precisa.
-  const uSecClean = uSec.replace(/\s+/g, '');
-  const aSecClean = aSec.replace(/\s+/g, '');
-  
-  if (uSecClean && aSecClean && (aSecClean === uSecClean)) {
-    return true;
+  // 4. Se a atividade foi compartilhada com este setor
+  if (Array.isArray(activity.sharedWith)) {
+    for (const uS of userSectorList) {
+      if (activity.sharedWith.some((sw: any) => compareSectorsMatch(String(sw), uS))) {
+        return true;
+      }
+    }
   }
 
-  // Se não tem setor específico, mas tem departamento exato
-  const uDeptClean = uDept.replace(/\s+/g, '');
-  const aDeptClean = aDept.replace(/\s+/g, '');
-  
-  if (!uSecClean && uDeptClean && aDeptClean && (aDeptClean === uDeptClean)) {
-    return true;
+  // 5. Nível Departamental: Se o utilizador não tem setor específico e pertence ao departamento da atividade
+  const uDeptClean = uDept.replace(/\s+/g, "");
+  const aDeptClean = aDept.replace(/\s+/g, "");
+  if (uDeptClean && aDeptClean) {
+    if (uDeptClean === aDeptClean || (uDeptClean.length >= 4 && aDeptClean.length >= 4 && (uDeptClean.includes(aDeptClean) || aDeptClean.includes(uDeptClean)))) {
+      if (userSectorList.length === 0 || actSectorList.length === 0) {
+        return true;
+      }
+    }
   }
 
   return false;

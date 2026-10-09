@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { X, Key, CheckCircle2, AlertCircle, Eye, EyeOff, Lock } from "lucide-react";
+import { X, Key, CheckCircle2, AlertCircle, Eye, EyeOff, Lock, Globe } from "lucide-react";
 import { firestoreService } from "../../lib/firestoreService";
 import { safeJSONStringify } from "../../lib/utils";
+import { setLanguagePreference, getCurrentLanguage, Language } from "../../lib/i18n";
 import {
   collection,
   query,
@@ -10,6 +11,7 @@ import {
   doc,
   updateDoc,
   getDoc,
+  setDoc,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
@@ -23,6 +25,7 @@ export default function ChangePasswordModal({
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(() => user?.idioma || getCurrentLanguage());
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -34,9 +37,30 @@ export default function ChangePasswordModal({
     e.preventDefault();
     setError("");
 
+    // Guardar preferência de idioma imediatamente
+    setLanguagePreference(selectedLanguage);
+    if (user) {
+      user.idioma = selectedLanguage;
+      try {
+        localStorage.setItem("sigep_logged_in_user", safeJSONStringify(user));
+        if (user.id) {
+          await setDoc(doc(db, "users", user.id), { idioma: selectedLanguage }, { merge: true });
+        }
+      } catch (err) {}
+    }
+
+    if (!currentPassword && !newPassword) {
+      setSuccess("Preferência de idioma atualizada com sucesso!");
+      setTimeout(() => {
+        onClose();
+        window.location.reload();
+      }, 1000);
+      return;
+    }
+
     const enteredCurrent = currentPassword.trim();
     if (!enteredCurrent) {
-      setError("É obrigatório introduzir a sua palavra-passe atual.");
+      setError("É obrigatório introduzir a sua palavra-passe atual para alterar a senha.");
       return;
     }
 
@@ -61,7 +85,6 @@ export default function ChangePasswordModal({
       let registeredPassword = String(user?.password || "").trim();
       let registeredPasswordHash = user?.passwordHash || "";
 
-      // Se não estiver diretamente no objeto user, consultar no Firestore
       if (user?.id) {
         try {
           const userDocSnap = await getDoc(doc(db, "users", user.id));
@@ -75,7 +98,6 @@ export default function ChangePasswordModal({
         }
       }
 
-      // Se ainda não encontrou, pesquisar por email ou nuit no Firestore
       if (!registeredPassword && (user?.email || user?.nuit)) {
         try {
           const usersRef = collection(db, "users");
@@ -105,7 +127,6 @@ export default function ChangePasswordModal({
         }
       }
 
-      // Fallback para cache local caso ainda esteja indefinida
       if (!registeredPassword) {
         try {
           const storedUser = localStorage.getItem("sigep_logged_in_user");
@@ -121,7 +142,6 @@ export default function ChangePasswordModal({
 
       const enteredCurrentHash = firestoreService.hashPassword(enteredCurrent);
 
-      // Verificação da senha atual
       let isCurrentValid = false;
       if (registeredPassword && enteredCurrent === registeredPassword) {
         isCurrentValid = true;
@@ -144,8 +164,6 @@ export default function ChangePasswordModal({
       }
 
       if (user?.id) {
-        // Encontrar e atualizar todos os documentos correspondentes a este utilizador no Firestore
-        // (tanto o original quanto os duplicados por UID) para evitar dessincronização de senhas.
         const usersRef = collection(db, "users");
         const uniqueDocIds = new Set<string>();
         uniqueDocIds.add(user.id);
@@ -356,7 +374,26 @@ export default function ChangePasswordModal({
           )}
 
           <div className="space-y-4">
-            {/* Palavra-passe Atual Obrigatória */}
+            {/* Seletor de Idioma Preferido */}
+            <div className="space-y-2 pb-2 border-b border-gray-100">
+              <label className="block text-xs font-bold text-gray-700 tracking-wider flex items-center gap-2">
+                <Globe size={16} className="text-[#121c60]" />
+                IDIOMA PREFERIDO / PREFERRED LANGUAGE
+              </label>
+              <select
+                value={selectedLanguage}
+                onChange={(e) => setSelectedLanguage(e.target.value as Language)}
+                className="w-full p-3 bg-gray-50 rounded-xl text-sm border-2 border-gray-100 focus:outline-none focus:border-[#121c60] font-medium"
+              >
+                <option value="pt">Português</option>
+                <option value="en">English (Inglês)</option>
+              </select>
+              <p className="text-[11px] text-gray-500 italic">
+                A preferência linguística é aplicada automaticamente ao sistema e associada ao seu perfil institucional.
+              </p>
+            </div>
+
+            {/* Palavra-passe Atual */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-gray-700 tracking-wider">
                 PALAVRA-PASSE ATUAL <span className="text-red-500">*</span>

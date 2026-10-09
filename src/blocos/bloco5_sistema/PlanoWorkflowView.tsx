@@ -110,6 +110,7 @@ import {
 } from "./plano/PlanoLogic";
 import { usePlanoPermissions } from "./plano/usePlanoPermissions";
 import ActivityForm from "../bloco5_sistema/ActivityForm";
+import AcaoOrcamentalView from "../../components/AcaoOrcamentalView";
 import { DPEPDashboard } from "../../components/DPEPDashboard";
 import { subscribePeriodoPlanificacao, isPlanificacaoAberta } from "../../lib/planningPeriodService";
 import { PeriodoPlanificacao } from "../../types";
@@ -1664,6 +1665,7 @@ export default function PlanoWorkflowView({
     | "pesoe"
     | "plano_setorial"
     | "plano_orcamento"
+    | "acao_orcamental"
     | "necessidades_quantidades"
   >(window.location.hash?.includes("PESOE") || (typeof title !== "undefined" && title === "PESOE") ? "pesoe" : "plano_orcamento");
 
@@ -5716,6 +5718,16 @@ export default function PlanoWorkflowView({
                           Plano e Orçamento
                         </button>
                         <button
+                          onClick={() => setActiveSubTab("acao_orcamental")}
+                          className={`px-6 py-3 rounded-xl font-black text-xs tracking-wider transition-all border flex items-center gap-2 ${
+                            activeSubTab === "acao_orcamental"
+                              ? "bg-emerald-700 text-white border-emerald-800 shadow-md"
+                              : "bg-white text-emerald-700 hover:bg-emerald-50 border-emerald-300"
+                          }`}
+                        >
+                          <span>📊 Ação Orçamental</span>
+                        </button>
+                        <button
                           onClick={() => setActiveSubTab("necessidades_quantidades")}
                           className={`px-6 py-3 rounded-xl font-black text-xs  tracking-wider transition-all border ${
                             activeSubTab === "necessidades_quantidades"
@@ -6252,6 +6264,19 @@ export default function PlanoWorkflowView({
                           </tbody>
                         </table>
                       </div>
+                    </div>
+                  )}
+
+                  {/* SUB-TAB: AÇÃO ORÇAMENTAL INTEGRADA */}
+                  {activeSubTab === "acao_orcamental" && (
+                    <div className="w-full bg-slate-50 border border-slate-200 rounded-3xl overflow-hidden p-2 md:p-4 shadow-xl shadow-slate-100/50 print:block">
+                      <AcaoOrcamentalView
+                        user={user}
+                        title={title || user?.setor || user?.departamento || "Ação Orçamental"}
+                        activities={rawActivities}
+                        onShowAlert={onShowAlert}
+                        onBack={() => setActiveSubTab("plano_orcamento")}
+                      />
                     </div>
                   )}
 
@@ -8207,13 +8232,10 @@ export default function PlanoWorkflowView({
                         setor: resolvedSector,
                         title:
                           data.nomeActividade || data.title || "Nova Atividade",
-                        direcao:
-                          data.unidadeSelecionada ||
-                          data.direcao ||
-                          editingActivity?.direcao ||
-                          user?.direcao ||
-                          user?.servicoCentral ||
-                          "Direção Geral",
+                        direcao: (() => {
+                          const raw = data.unidadeSelecionada || data.direcao || editingActivity?.direcao || user?.direcao || user?.servicoCentral || "Gabinete do Diretor-Geral";
+                          return (raw.toLowerCase().includes("direção geral") || raw.toLowerCase().includes("direcao geral")) ? "Gabinete do Diretor-Geral" : raw;
+                        })(),
                         departamento:
                           data.departamento ||
                           editingActivity?.departamento ||
@@ -8322,29 +8344,54 @@ export default function PlanoWorkflowView({
                           "PlanoWorkflowView: Processando atividade:",
                           activity.title,
                         );
-                        if (editingActivity && editingActivity.id && !data._forceNewRecord) {
-                          const primaryId = editingActivity.id;
-                          const groupDocs = getActivityGroup(editingActivity, rawActivities);
+
+                        // Determinar a chave única permanente da atividade
+                        const existingActivityId = editingActivity?.activityId || editingActivity?.id || data?.activityId || data?.id || activity?.activityId || activity?.id;
+
+                        // Verificar se já existe uma atividade na lista correspondente por ID ou por código/referência único
+                        const duplicateByRef = (!data._forceNewRecord && !existingActivityId) ? rawActivities.find((a) => {
+                          if (!a) return false;
+                          const aRef = String(a.referencia || a.codigoActividade || a.codigo || "").trim();
+                          const thisRef = String(resolvedCode || data.referencia || data.codigoActividade || "").trim();
+                          if (thisRef && thisRef !== "-" && thisRef !== "ACT" && aRef === thisRef) return true;
+                          return false;
+                        }) : null;
+
+                        const isExistingUpdate = Boolean((existingActivityId || duplicateByRef) && !data._forceNewRecord);
+                        const primaryId = String(existingActivityId || duplicateByRef?.id);
+
+                        if (isExistingUpdate && primaryId) {
+                          // Garantir chaves únicas permanentes no objeto da atividade
+                          activity.id = primaryId;
+                          activity.activityId = primaryId;
+                          activity.submetido = true;
+
+                          const groupDocs = editingActivity ? getActivityGroup(editingActivity, rawActivities) : [];
                           const allGroupIds = new Set<string>([
-                            ...(editingActivity._groupIds || []),
+                            ...(editingActivity?._groupIds || []),
                             ...groupDocs.map((g) => g.id),
                           ]);
                           const secondaryIds = Array.from(allGroupIds).filter((id) => id && id !== primaryId);
 
                           console.log(
-                            "PlanoWorkflowView: Substituindo atividade existente ID:",
+                            "PlanoWorkflowView: Executando UPDATE no documento existente ID:",
                             primaryId,
-                            "e removendo duplicados secundários:",
+                            "e removendo eventuais duplicados secundários:",
                             secondaryIds,
                           );
 
-                          // 1. Substituir a atividade principal no Firestore
+                          // 1. Executar UPDATE / REPLACE no documento existente no Firestore
                           await firestoreService.matrixActivities.replace(
                             primaryId,
                             activity,
                           );
 
-                          // 2. Eliminar quaisquer registos duplicados do mesmo grupo no Firestore
+                          // Notificar estado central
+                          if (onUpdateMatrixActivity) {
+                            onUpdateMatrixActivity(primaryId, activity);
+                          }
+
+                          // 2. Eliminar quaisquer registos duplicados secundários para garantir unicidade estrita
                           for (const oldId of secondaryIds) {
                             try {
                               await firestoreService.matrixActivities.delete(oldId);
@@ -8354,7 +8401,7 @@ export default function PlanoWorkflowView({
                           }
 
                           console.log(
-                            "PlanoWorkflowView: Atividade atualizada e duplicados eliminados com sucesso.",
+                            "PlanoWorkflowView: Atividade atualizada com UPDATE (sem duplicações).",
                           );
 
                           // 3. Atualizar estado local eliminando duplicados e atualizando o registo principal
@@ -8363,19 +8410,17 @@ export default function PlanoWorkflowView({
                             return cleaned.map((a) => (a.id === primaryId ? activity : a));
                           });
 
-                          console.log(
-                            "PlanoWorkflowView: Fechando formulário.",
-                          );
                           setShowAddForm(false);
                           setEditingActivity(null);
 
                           onShowAlert(
-                            "Atividade planificada atualizada com sucesso!",
+                            "Atividade atualizada com sucesso! A Ação Orçamental e os resumos do setor foram atualizados automaticamente.",
                           );
                         } else {
                           console.log(
-                            "PlanoWorkflowView: Adicionando nova atividade.",
+                            "PlanoWorkflowView: Adicionando nova atividade submetida com chave única.",
                           );
+                          activity.submetido = true;
                           const newId =
                             await firestoreService.matrixActivities.add(
                               activity,
@@ -8387,7 +8432,13 @@ export default function PlanoWorkflowView({
                           const savedActivity = {
                             ...activity,
                             id: newId || activity.id,
+                            activityId: newId || activity.activityId || activity.id,
                           };
+
+                          if (onAddMatrixActivity) {
+                            onAddMatrixActivity(savedActivity);
+                          }
+
                           setRawActivities((prev) => {
                             if (prev.some((a) => a.id === savedActivity.id)) {
                               return prev.map((a) => (a.id === savedActivity.id ? savedActivity : a));
@@ -8402,15 +8453,7 @@ export default function PlanoWorkflowView({
                           setEditingActivity(null);
 
                           onShowAlert(
-                            `Atividade planificada adicionada ao Plano ${
-                              activeSubTab === "plano_institucional"
-                                ? "Institucional"
-                                : activeSubTab === "plano_direcoes"
-                                  ? "da Direção"
-                                  : activeSubTab === "plano_departamento"
-                                    ? "do Departamento"
-                                    : "da Repartição"
-                            } com sucesso!`,
+                            "Atividade submetida com sucesso! A Ação Orçamental e os resumos do setor foram atualizados automaticamente.",
                           );
                         }
                       } catch (err: any) {

@@ -16,6 +16,8 @@ import {
   Printer,
   BookOpen,
   RotateCcw,
+  Key,
+  Globe,
 } from "lucide-react";
 import SobreSistemaView from "../bloco5_sistema/SobreSistemaView";
 import { ProcessingCircle } from "../../components/ui/ProcessingCircle";
@@ -26,9 +28,11 @@ import {
   safeJSONStringify,
   safeJSONParse,
 } from "../../lib/utils";
+import { setLanguagePreference, getCurrentLanguage, Language } from "../../lib/i18n";
 import { EFETIVO_GERAL_DATA } from "../../constants/colaboradoresList";
 import { printElementById } from "../../lib/printUtils";
 import RegistarFuncionarioForm from "../bloco8_gerais/RegistarFuncionarioForm";
+import { PasswordRecoveryModal } from "../../components/PasswordRecoveryModal";
 import { holidays2026 } from "../../constants/holidays";
 import { auth, db } from "../../lib/firebase";
 import { signInAnonymously } from "firebase/auth";
@@ -161,20 +165,28 @@ const findLocalUser = (lowerInput: string, inputPass?: string) => {
       name: "SLAITER TRIPAS",
       nome: "SLAITER TRIPAS",
       designacao: "SLAITER TRIPAS",
-      role: "Proprietário / Administrador Geral",
-      cargo: "Proprietário, Programador e Administrador Geral",
-      cargoChefia: "Nenhum (Administrador Geral)",
-      funcao: "Proprietário, Programador e Administrador Geral",
-      categoria: "Proprietário, Programador e Administrador Geral",
-      orgao: "Administração Geral do Sistema",
-      unidade: "Administração Geral do Sistema",
-      unidadeOrganica: "Administração Geral do Sistema",
-      direcao: "Administração Geral do Sistema",
-      departamento: "Administração Geral do Sistema",
-      status: "Ativo / Proprietário e Administrador Geral",
+      tipoUtilizador: "Administrador Global do Sistema",
+      role: "Administrador Global do Sistema",
+      cargo: "Administrador Global",
+      cargoChefia: "-",
+      funcao: "Administrador Global",
+      categoria: "Administrador Global",
+      vinculacaoInstitucional: "Nenhuma",
+      participacaoQuadroPessoal: "Não",
+      orgao: "-",
+      unidade: "-",
+      unidadeOrganica: "-",
+      direcao: "Nulo",
+      departamento: "Nulo",
+      reparticao: "Nulo",
+      setor: "Nulo",
+      instituicaoId: "",
+      status: "Ativo",
       efetivo: false,
+      isQuadro: false,
       isOwner: true,
       isProgrammer: true,
+      isGlobalAdmin: true,
       password: "231383ft",
       mustChangePassword: false,
     };
@@ -248,6 +260,7 @@ export default function LoginScreen({
   }, []);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [loginLanguage, setLoginLanguage] = useState<Language>(() => getCurrentLanguage());
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -257,6 +270,7 @@ export default function LoginScreen({
   const [contactText, setContactText] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [requestReset, setRequestReset] = useState(false);
+  const [showPasswordRecoveryModal, setShowPasswordRecoveryModal] = useState(false);
 
   const handleRequestReset = async () => {
     if (!identifier) {
@@ -1179,6 +1193,7 @@ export default function LoginScreen({
         setTimeout(() => {
           onLogin({
             ...user,
+            idioma: loginLanguage,
             userArea: {
               unidade: user.unidade,
               direcao: user.direcao,
@@ -1416,31 +1431,10 @@ export default function LoginScreen({
     <div className="fixed inset-0 flex flex-col md:flex-row h-screen w-full bg-white z-[100] overflow-y-auto">
       {/* Left Side - Blue */}
       <div className="hidden md:flex w-full md:w-1/2 bg-[#1e1e96] p-8 md:p-12 flex-col justify-between text-white relative overflow-y-auto">
-        {/* Background Image / Tech Gradient */}
-        {currentInst?.backgroundImage ? (
-          <div className="absolute inset-0 z-0 overflow-hidden">
-            <img
-              src={currentInst.backgroundImage}
-              alt="Background Institucional"
-              className="absolute inset-0 w-full h-full object-cover opacity-30"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050b38]/90 via-[#0d1b54]/50 to-transparent" />
-          </div>
-        ) : (
-          <div className="absolute inset-0 z-0 overflow-hidden bg-gradient-to-br from-[#060c28] via-[#0d1844] to-[#1e1e96]">
-            <img
-              src="https://media.gettyimages.com/id/2155090853/pt/foto/datalake-big-data-warehouse-data-lake-platform-analytics-technology.jpg?s=612x612&w=0&k=20&c=862Mekqm-P_C-whyov3D9oTQ_IWw7fYXvA4zkL3MtR4="
-              alt="Fundo SIGEP Sistema"
-              className="absolute inset-0 w-full h-full object-cover opacity-35"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050b38] via-[#0d1844]/80 to-[#1e1e96]/60" />
-            <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:20px_20px]" />
-            <div className="absolute -right-20 -bottom-20 w-80 h-80 rounded-full bg-blue-500/15 blur-3xl" />
-            <div className="absolute -left-20 -top-20 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl" />
-          </div>
-        )}
+        {/* Fundo Limpo, Moderno e Profissional */}
+        <div className="absolute inset-0 z-0 overflow-hidden bg-gradient-to-br from-[#0a1236] via-[#0f1d52] to-[#18296d]">
+          <div className="absolute inset-0 bg-[radial-gradient(#ffffff_0.5px,transparent_0.5px)] opacity-5 [background-size:24px_24px]" />
+        </div>
 
         <div className="relative z-10 flex flex-col">
           <div className="flex items-center gap-4">
@@ -1617,9 +1611,27 @@ export default function LoginScreen({
               <h1 className="text-3xl sm:text-4xl font-bold text-[#0a0a5a] mb-2 font-serif tracking-tight">
                 Bem-vindo
               </h1>
-              <p className="text-base sm:text-lg text-gray-500 italic mb-8 font-serif">
+              <p className="text-base sm:text-lg text-gray-500 italic mb-4 font-serif">
                 Insira as suas credenciais de acesso.
               </p>
+
+              {/* Seletor de Idioma no Ecrã de Login */}
+              <div className="mb-6 flex items-center justify-center gap-2">
+                <Globe size={16} className="text-[#0a0a5a]" />
+                <span className="text-xs font-bold text-[#0a0a5a] uppercase tracking-wider">Idioma / Language:</span>
+                <select
+                  value={loginLanguage}
+                  onChange={(e) => {
+                    const lang = e.target.value as Language;
+                    setLoginLanguage(lang);
+                    setLanguagePreference(lang);
+                  }}
+                  className="bg-gray-100 border border-gray-200 text-xs font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0a0a5a]/20 text-[#0a0a5a]"
+                >
+                  <option value="pt">Português</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
 
               <form className="space-y-8" onSubmit={handleSubmit}>
                 {error && (
@@ -1735,6 +1747,15 @@ export default function LoginScreen({
                 >
                   <RotateCcw size={14} className="text-blue-600 shrink-0" />
                   <span>Resolver problemas de acesso (Limpar Cache)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordRecoveryModal(true)}
+                  className="text-xs text-indigo-700 hover:text-indigo-900 font-bold transition-colors cursor-pointer hover:underline flex items-center justify-center gap-1.5 pt-1"
+                >
+                  <Key size={14} className="text-indigo-600 shrink-0" />
+                  <span>Esqueci a minha senha (Validação Dinâmica de Identidade)</span>
                 </button>
               </div>
             </>
@@ -2165,6 +2186,13 @@ export default function LoginScreen({
             <SobreSistemaView />
           </div>
         </div>
+      )}
+
+      {showPasswordRecoveryModal && (
+        <PasswordRecoveryModal
+          onClose={() => setShowPasswordRecoveryModal(false)}
+          onSuccess={() => setShowPasswordRecoveryModal(false)}
+        />
       )}
     </div>
   );

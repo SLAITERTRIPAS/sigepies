@@ -55,13 +55,8 @@ export const ESTRUTURA_BASE_GESTAO_INSTITUICOES = [
         nome: "Gabinete do Diretor-Geral",
         departamentos: [
           {
-            nome: "Diretor-Geral",
-            reparticoes: ["Chefe do GDG", "Secretaria Executiva"],
-          },
-          {
-            nome: "Departamento de Planificação Estudos e Projetos",
+            nome: "Departamento de Planificação, Estudos e Projetos",
             reparticoes: [
-              "Gabinete do Chefe (DPEP)",
               "Repartição de Planificação",
               "Repartição de Estatística",
               "Setor de Relatório",
@@ -70,26 +65,23 @@ export const ESTRUTURA_BASE_GESTAO_INSTITUICOES = [
           },
           {
             nome: "Unidade Gestora e Executora de Aquisições",
-            reparticoes: ["Chefe da UGEA"],
+            reparticoes: [],
           },
           {
             nome: "Departamento de Cooperação e Relações Exteriores",
             reparticoes: [
-              "Chefe do DCRE",
               "Setor de Imagem Institucional",
             ],
           },
           {
             nome: "Departamento de Controlo Técnico e de Qualidade",
             reparticoes: [
-              "Chefe do DCTQ",
               "Setor de Controlo Técnico",
             ],
           },
           {
             nome: "Departamento Jurídico",
             reparticoes: [
-              "Chefe do DJ",
               "Setor de Pareceres",
             ],
           },
@@ -110,51 +102,31 @@ export const ESTRUTURA_BASE_GESTAO_INSTITUICOES = [
     tipo: "Unidade Estrutural",
     direcoes: [
       {
-        nome: "Divisão de Instrução e Ensino",
+        nome: "Divisão de Engenharia",
         departamentos: [
-          {
-            nome: "Direção da Divisão de Instrução e Ensino",
-            reparticoes: [
-              "Diretor da Divisão de Instrução e Ensino",
-              "Diretor Adjunto Pedagógico",
-            ],
-          },
           {
             nome: "Departamento de Pesquisa e Extensão",
             reparticoes: ["Repartição de Pesquisa", "Repartição de Extensão"],
           },
           {
             nome: "Departamento de Engenharia Eletrotécnica",
-            reparticoes: [
-              "Chefe do DEE",
-              "Diretor do Curso de Engenharia Elétrica",
-              "Diretor do Curso de Engenharia Eletrónica e de Telecomunicações",
-              "Diretor do Curso de Engenharia de Energias Renováveis",
-            ],
+            reparticoes: [],
           },
           {
             nome: "Departamento de Engenharia de Construção Civil",
-            reparticoes: [
-              "Chefe do DECC",
-              "Diretor do Curso de Engenharia de Construção Civil",
-              "Diretor do Curso de Engenharia Hidráulica",
-            ],
+            reparticoes: [],
           },
           {
             nome: "Departamento de Engenharia de Construção Mecânica",
-            reparticoes: [
-              "Chefe do DECM",
-              "Diretor do Curso de Engenharia de Construção Mecânica",
-              "Diretor do Curso de Engenharia Termotécnica",
-            ],
+            reparticoes: [],
           },
           {
             nome: "Departamento de Disciplinas Gerais",
-            reparticoes: ["Chefe do DDG", "Repartição de Apoio Pedagógico"],
+            reparticoes: ["Repartição de Apoio Pedagógico"],
           },
           {
             nome: "Departamento Técnico e de Apoio",
-            reparticoes: ["Chefe do DTA", "Repartição de Laboratórios"],
+            reparticoes: ["Repartição de Laboratórios"],
           },
         ],
       },
@@ -162,15 +134,15 @@ export const ESTRUTURA_BASE_GESTAO_INSTITUICOES = [
         nome: "Centro de Incubação de Empresas",
         departamentos: [
           {
-            nome: "Departamento de práticas de geração de negócio e desenvolvimento empresarial (DPGNDE)",
+            nome: "Departamento de Práticas de Geração de Negócio e Desenvolvimento Empresarial",
             reparticoes: [],
           },
           {
-            nome: "Departamento de consultoria, estudos, projetos e angariação de fundos (DCPAF)",
+            nome: "Departamento de Consultoria, Estudos, Projetos e Angariação de Fundos",
             reparticoes: [],
           },
           {
-            nome: "Departamento de prospecção de oportunidade de negócio (DPONE)",
+            nome: "Departamento de Prospecção de Oportunidades de Negócio",
             reparticoes: [],
           },
         ],
@@ -185,44 +157,36 @@ export const ESTRUTURA_BASE_GESTAO_INSTITUICOES = [
         nome: "DICOSAFA",
         departamentos: [
           {
-            nome: "Direção da DICOSAFA",
-            reparticoes: ["Diretor da DICOSAFA"],
-          },
-          {
-            nome: "Departamento de Recursos Humanos",
+            nome: "Recursos Humanos",
             reparticoes: [
-              "Chefe do RH",
               "Repartição de Pessoal",
               "Repartição de Formação",
               "Repartição de Apoio Social",
             ],
           },
           {
-            nome: "Departamento de Finanças",
+            nome: "Finanças",
             reparticoes: [
-              "Chefe de Finanças",
               "Repartição de Plano e Orçamento",
               "Repartição de Tesouraria",
               "Setor de Estatística",
             ],
           },
           {
-            nome: "Departamento de Património",
+            nome: "Património",
             reparticoes: [
-              "Chefe de DP",
               "Repartição de E-Património",
               "Repartição de Infraestrutura e Manutenção",
               "Repartição de Transporte",
             ],
           },
           {
-            nome: "Secretaria Geral",
-            reparticoes: ["Chefe da SG", "Secretaria", "SIC"],
+            nome: "Secretaria-Geral",
+            reparticoes: ["Secretaria", "SIC"],
           },
           {
             nome: "Departamento TIC",
             reparticoes: [
-              "Chefe de DTIC",
               "Setor de Rede de Computadores",
               "Setor de Manutenção",
               "Reprografia",
@@ -232,7 +196,6 @@ export const ESTRUTURA_BASE_GESTAO_INSTITUICOES = [
           {
             nome: "Departamento Lar de Estudantes",
             reparticoes: [
-              "Chefe de DLE",
               "Repartição de Alojamento",
               "Repartição de Eventos",
               "Economato",
@@ -241,7 +204,6 @@ export const ESTRUTURA_BASE_GESTAO_INSTITUICOES = [
           {
             nome: "Departamento de Produção Alimentar",
             reparticoes: [
-              "Chefe de DPA",
               "Repartição de Produção Animal",
               "Repartição de Produção Vegetal",
               "Armazém de Thaka",
@@ -253,13 +215,8 @@ export const ESTRUTURA_BASE_GESTAO_INSTITUICOES = [
         nome: "DICOSSER",
         departamentos: [
           {
-            nome: "Direção da DICOSSER",
-            reparticoes: ["Diretor da DICOSSER"],
-          },
-          {
-            nome: "Departamento de Registo Académico",
+            nome: "Registo Académico",
             reparticoes: [
-              "Chefe do DRA",
               "Atendimento Estudantil",
               "Repartição de Certificação",
               "Repartição de Exames de Admissão",
@@ -267,17 +224,15 @@ export const ESTRUTURA_BASE_GESTAO_INSTITUICOES = [
             ],
           },
           {
-            nome: "Departamento de Assuntos Estudantis",
+            nome: "Assuntos Estudantis",
             reparticoes: [
-              "Chefe do DAE",
               "Repartição de Bolsa de Estudos",
               "Repartição de Desporto e Recreação",
             ],
           },
           {
-            nome: "Departamento de Biblioteca",
+            nome: "Biblioteca",
             reparticoes: [
-              "Chefe de DBA",
               "Biblioteca",
               "Repartição de Documentos",
               "Repartição de Arquivo",

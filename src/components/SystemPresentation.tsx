@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowRight,
   Database,
@@ -8,6 +8,16 @@ import {
   LogIn,
   Globe,
   FolderArchive,
+  BarChart3,
+  Layers,
+  FileCheck2,
+  Users2,
+  Building,
+  Briefcase,
+  ChevronRight,
+  ChevronLeft,
+  Play,
+  Pause
 } from "lucide-react";
 import SigepLogo from "./SigepLogo";
 import { getSystemLogo } from "../lib/logoService";
@@ -17,15 +27,119 @@ interface SystemPresentationProps {
   onContinue: () => void;
 }
 
+interface SlideItem {
+  id: number;
+  badge: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  icon: any;
+  accentColor: string;
+  metrics: { label: string; value: string; desc: string }[];
+  highlights: string[];
+}
+
+const SLIDES: SlideItem[] = [
+  {
+    id: 1,
+    badge: "Governança & Integração Institucional",
+    title: "SIGEP • Sistema Integrado de Gestão",
+    subtitle: "Plataforma Centralizada de Processos, Recursos e Decisão Estratégica",
+    description: "Conexão em tempo real de todas as Direções, Departamentos, Repartições e Setores. Eliminação de silos e conformidade administrativa integral.",
+    icon: Building,
+    accentColor: "blue",
+    metrics: [
+      { label: "Módulos Integrados", value: "9", desc: "Blocos de Operação" },
+      { label: "Sincronização", value: "100%", desc: "Em tempo real" },
+      { label: "Governança", value: "ISO", desc: "Conformidade Normativa" },
+    ],
+    highlights: [
+      "Gabinete do Diretor-Geral e Órgãos de Gestão",
+      "Hierarquia unificada por Setores e Repartições",
+      "Auditoria transparente de todos os atos administrativos"
+    ]
+  },
+  {
+    id: 2,
+    badge: "Planificação Estratégica & Orçamento",
+    title: "PESOE & Matriz de Ação Orçamental",
+    subtitle: "Controlo Rigoroso de Dotações, Rúbricas SISTAFE e Atividades Setoriais",
+    description: "Cada departamento e setor gere as suas atividades de forma isolada e soberana. Rúbricas e tetos orçamentais sem sobreposição nem vazamento de dados.",
+    icon: BarChart3,
+    accentColor: "emerald",
+    metrics: [
+      { label: "Isolamento Setorial", value: "100%", desc: "Por Departamento/Setor" },
+      { label: "Rubricas Oficiais", value: "36", desc: "SISTAFE Moçambique" },
+      { label: "Controlo de Tetos", value: "Ativo", desc: "Execução vs Dotação" },
+    ],
+    highlights: [
+      "Cálculo exclusivo de rubricas por unidade selecionada",
+      "Gestão de Ajudas de Custo, Bens e Serviços e Remunerações",
+      "Tramitação oficial de aprovação e publicação DPEP"
+    ]
+  },
+  {
+    id: 3,
+    badge: "Recursos Humanos & Gestão de Pessoal",
+    title: "Processo Individual & Carreira Técnica",
+    subtitle: "Dossiê Digital Completo do Servidor, Assiduidade e Alocação",
+    description: "Gestão completa do corpo docente, corpo técnico-administrativo e colaboradores contratados. Histórico disciplinar, férias e progressão funcional.",
+    icon: Users2,
+    accentColor: "indigo",
+    metrics: [
+      { label: "Quadro Efetivo", value: "Central", desc: "Base de Dados Única" },
+      { label: "Processos Digitais", value: "100%", desc: "Histórico Individual" },
+      { label: "Alocação Setorial", value: "Estrita", desc: "Sem Chefias Duplicadas" },
+    ],
+    highlights: [
+      "Alocação precisa de colaboradores por setor",
+      "Nomeação e manutenção manual de chefias autorizadas",
+      "Conta técnica do desenvolvedor desacoplada do efetivo"
+    ]
+  },
+  {
+    id: 4,
+    badge: "Aquisições Públicas & Património",
+    title: "UGEA & Gestão de Suprimentos",
+    subtitle: "Contratação Pública, Catálogo de Preços e Tramitação Segura",
+    description: "Gestão transparente do Plano de Procurement, qualificação de fornecedores, registo de bens materiais e cabimento orçamental garantido.",
+    icon: Layers,
+    accentColor: "amber",
+    metrics: [
+      { label: "Contratação", value: "UGEA", desc: "Regime Jurídico Oficial" },
+      { label: "Catálogo Mestre", value: "Ativo", desc: "Preços de Referência" },
+      { label: "Inventário Patrimonial", value: "Móvel/Fixo", desc: "Controle de Frotas e Bens" },
+    ],
+    highlights: [
+      "Isolamento integral da Ação Orçamental da UGEA",
+      "Ajudas de Custo calculadas com exatidão setorial",
+      "Tramitação de pareceres e despachos em fluxo digital"
+    ]
+  }
+];
+
 export default function SystemPresentation({ onContinue }: SystemPresentationProps) {
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [time, setTime] = useState<Date>(new Date());
   const [systemLogo, setSystemLogo] = useState<string | null>(() => getSystemLogo());
+  const [isPlaying, setIsPlaying] = useState(true);
 
+  // Relógio do sistema
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    const clockTimer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(clockTimer);
   }, []);
 
+  // Transição automática a cada 4 segundos (4000ms)
+  useEffect(() => {
+    if (!isPlaying) return;
+    const slideTimer = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % SLIDES.length);
+    }, 4000);
+    return () => clearInterval(slideTimer);
+  }, [isPlaying]);
+
+  // Sincronização de logotipo
   useEffect(() => {
     const handleLogoUpdate = (e: any) => {
       setSystemLogo(e?.detail?.logo !== undefined ? e.detail.logo : getSystemLogo());
@@ -39,9 +153,7 @@ export default function SystemPresentation({ onContinue }: SystemPresentationPro
           setSystemLogo(data.systemLogo || null);
         }
       });
-    } catch (e) {
-      // Ignorar falha silenciosamente
-    }
+    } catch (_) {}
 
     return () => {
       window.removeEventListener("sigep_system_logo_updated", handleLogoUpdate);
@@ -49,213 +161,200 @@ export default function SystemPresentation({ onContinue }: SystemPresentationPro
     };
   }, []);
 
-  // Formatação de data em Português
-  const dayOfWeek = time.toLocaleDateString("pt-PT", { weekday: "long" });
-  const capitalizedDay = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
-  const timeString = time.toLocaleTimeString("pt-PT", { hour12: false });
-  const dateString = time.toLocaleDateString("pt-PT", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const slide = SLIDES[currentSlideIndex];
+  const SlideIcon = slide.icon;
+
+  const nextSlide = () => {
+    setCurrentSlideIndex((prev) => (prev + 1) % SLIDES.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlideIndex((prev) => (prev - 1 + SLIDES.length) % SLIDES.length);
+  };
 
   return (
     <div
       id="sigep-cover-fixed"
-      className="min-h-full h-full w-full bg-[#04092b] text-white flex flex-col justify-between font-serif relative overflow-x-hidden cursor-default select-none"
+      className="fixed inset-0 w-full h-full min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between font-sans select-none overflow-hidden"
     >
-      {/* Background patterns & Imagem Tecnológica do SIGEP */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <img
-          src="https://media.gettyimages.com/id/2155090853/pt/foto/datalake-big-data-warehouse-data-lake-platform-analytics-technology.jpg?s=612x612&w=0&k=20&c=862Mekqm-P_C-whyov3D9oTQ_IWw7fYXvA4zkL3MtR4="
-          alt="SIGEP Big Data Background"
-          className="w-full h-full object-cover opacity-20"
-          referrerPolicy="no-referrer"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#04092b] via-[#04092b]/85 to-[#04092b]/70"></div>
-        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-blue-600/15 rounded-full blur-[140px] pointer-events-none"></div>
-        <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-indigo-600/10 rounded-full blur-[140px] pointer-events-none"></div>
-      </div>
-
-      {/* Barra de Topo */}
-      <div className="relative z-20 w-full px-4 sm:px-8 py-3 flex items-center justify-between border-b border-white/10 bg-[#030722]/60 backdrop-blur-sm">
-        {/* Lado Esquerdo: Mini Logo SIGEP transparente sem moldura rígida */}
-        <div className="flex flex-col items-start justify-center">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center bg-transparent overflow-hidden">
+      {/* Barra de Topo Limpa e Moderna */}
+      <header className="w-full px-4 sm:px-8 py-3.5 flex items-center justify-between border-b border-slate-200 bg-white shadow-xs z-30 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-slate-100 rounded-xl p-1 overflow-hidden border border-slate-200">
             {systemLogo ? (
               <img
                 src={systemLogo}
                 alt="Logotipo SIGEP"
-                className="w-full h-full object-contain filter drop-shadow-sm"
+                className="w-full h-full object-contain"
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <SigepLogo size="sm" showText={false} animated={true} />
+              <SigepLogo size="sm" showText={false} animated={false} />
             )}
           </div>
-          <span className="text-[9px] text-slate-300 font-sans tracking-wide leading-none mt-1">
-            Gestão de Processos
-          </span>
-        </div>
-
-        {/* Centro: Relógio Digital com Borda Dourada e Logótipo de Fundo */}
-        <div className="border border-amber-400/60 rounded-2xl px-5 sm:px-7 py-2 bg-[#040826]/90 backdrop-blur-md text-center shadow-lg relative overflow-hidden group select-none min-w-[260px] sm:min-w-[290px]">
-          {systemLogo && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden p-1">
-              <img
-                src={systemLogo}
-                alt="Logótipo de Fundo"
-                className="w-full h-full max-h-[85%] max-w-[85%] object-contain opacity-25 filter brightness-110 contrast-125"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/40" />
-            </div>
-          )}
-          <div className="relative z-10 w-full flex flex-col items-center leading-none">
-            {/* Linha Superior: DIA DA SEMANA | HORA */}
-            <div className="w-full flex items-center justify-center gap-1.5 sm:gap-2">
-              <span 
-                className="text-[#FFB800] font-serif font-black text-xs tracking-[0.16em] uppercase whitespace-nowrap"
-                style={{ textShadow: "1.5px 1.5px 0px #000000" }}
-              >
-                {capitalizedDay.toUpperCase()}
-              </span>
-              
-              <span 
-                className="text-[#FFB800] font-black text-sm mx-1 select-none leading-none"
-                style={{ textShadow: "1.5px 1.5px 0px #000000" }}
-              >
-                |
-              </span>
-
-              <span 
-                className="text-white font-serif font-black text-base sm:text-lg tracking-[0.2em] tabular-nums whitespace-nowrap"
-                style={{ textShadow: "2px 2px 0px #000000" }}
-              >
-                {timeString.split('').join(' ')}
-              </span>
-            </div>
-
-            {/* Barra Divisória Horizontal Dourada */}
-            <div className="w-full h-[3px] bg-[#FFB800] rounded-full my-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />
-
-            {/* Linha Inferior: DATA POR EXTENSO */}
-            <div className="w-full text-center">
-              <span 
-                className="text-slate-100 font-serif font-bold text-[10px] sm:text-[11px] tracking-[0.22em] uppercase whitespace-nowrap"
-                style={{ textShadow: "1.5px 1.5px 0px #000000" }}
-              >
-                {dateString.toUpperCase()}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Lado Direito: Status do Sistema */}
-        <div className="flex items-center gap-2 bg-[#040826]/80 border border-white/15 rounded-full px-3.5 py-1.5 shadow">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-[11px] font-sans font-bold text-slate-200">
-            Sistema
-          </span>
-        </div>
-      </div>
-
-      {/* Conteúdo Central Limpo */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-8 max-w-5xl mx-auto w-full text-center">
-        {/* Logotipo Central Completo do SIGEP em destaque */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col items-center mb-8"
-        >
-          <div className="w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 flex items-center justify-center overflow-hidden">
-            {systemLogo ? (
-              <img
-                src={systemLogo}
-                alt="Logotipo SIGEP"
-                className="w-full h-full object-contain filter drop-shadow-2xl rounded-3xl"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <SigepLogo size="xl" isDark={true} animated={true} />
-            )}
-          </div>
-        </motion.div>
-
-        {/* 3 Cartões de Funcionalidades */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-4xl mb-8">
-          <div className="bg-[#07113a]/60 backdrop-blur-md border border-blue-900/40 p-5 sm:p-6 rounded-2xl text-left shadow-lg">
-            <div className="w-9 h-9 bg-amber-400 text-[#050b38] rounded-lg flex items-center justify-center mb-3">
-              <Cpu size={20} strokeWidth={2.5} />
-            </div>
-            <h3 className="text-sm font-bold text-white mb-1.5 font-sans">
-              Inteligência Integrada
-            </h3>
-            <p className="text-xs text-slate-300 leading-relaxed font-sans font-normal">
-              Processamento de dados institucionais com arquitetura de 9 blocos operacionais.
-            </p>
-          </div>
-
-          <div className="bg-[#07113a]/60 backdrop-blur-md border border-blue-900/40 p-5 sm:p-6 rounded-2xl text-left shadow-lg">
-            <div className="w-9 h-9 bg-amber-400 text-[#050b38] rounded-lg flex items-center justify-center mb-3">
-              <Database size={20} strokeWidth={2.5} />
-            </div>
-            <h3 className="text-sm font-bold text-white mb-1.5 font-sans">
-              Dados Centralizados
-            </h3>
-            <p className="text-xs text-slate-300 leading-relaxed font-sans font-normal">
-              Fonte única de verdade para RH, Património, Finanças e Académico.
-            </p>
-          </div>
-
-          <div className="bg-[#07113a]/60 backdrop-blur-md border border-blue-900/40 p-5 sm:p-6 rounded-2xl text-left shadow-lg">
-            <div className="w-9 h-9 bg-amber-400 text-[#050b38] rounded-lg flex items-center justify-center mb-3">
-              <Lock size={20} strokeWidth={2.5} />
-            </div>
-            <h3 className="text-sm font-bold text-white mb-1.5 font-sans">
-              Segurança Máxima
-            </h3>
-            <p className="text-xs text-slate-300 leading-relaxed font-sans font-normal">
-              Autenticação multi-papel e conformidade normativa rigorosa.
+          <div>
+            <h1 className="text-sm font-black text-slate-900 tracking-tight leading-tight">
+              SIGEP Moçambique
+            </h1>
+            <p className="text-[10px] text-slate-500 font-medium">
+              Apresentação Institucional de Sistemas
             </p>
           </div>
         </div>
 
-        {/* Botão Dourado de Entrada no Sistema */}
-        <div className="flex flex-col items-center gap-4">
+        {/* Relógio & Indicador de Status */}
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex flex-col text-right">
+            <span className="text-xs font-black text-slate-800 font-mono tracking-wider">
+              {time.toLocaleTimeString("pt-PT", { hour12: false })}
+            </span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+              {time.toLocaleDateString("pt-PT", { day: "numeric", month: "short", year: "numeric" })}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 text-emerald-700 text-xs font-bold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[11px] font-bold">Online</span>
+          </div>
+
           <button
-            id="btn-entrar-sistema"
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onContinue();
-            }}
-            className="px-8 py-3.5 bg-amber-400 hover:bg-amber-300 active:scale-95 text-[#050b38] rounded-full font-bold text-sm tracking-wide shadow-xl flex items-center gap-2.5 transition-all cursor-pointer"
+            onClick={onContinue}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-4 py-2 rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer"
+            title="Aceder à tela de autenticação"
           >
-            <LogIn size={18} strokeWidth={2.5} />
-            <span>Entrar no Sistema</span>
-            <ArrowRight size={18} strokeWidth={2.5} />
+            <span>Entrar</span>
+            <LogIn size={15} />
           </button>
-
-          {/* Rodapé Limpo: SIGEP - MOÇAMBIQUE • V1.1.2.0 */}
-          <div className="flex items-center justify-center gap-6 text-[11px] font-sans text-slate-400 tracking-wider uppercase mt-3">
-            <span className="flex items-center gap-1.5">
-              <Globe size={13} />
-              SIGEP - MOÇAMBIQUE
-            </span>
-            <span className="flex items-center gap-1.5">
-              <FolderArchive size={13} />
-              V1.1.2.0
-            </span>
-          </div>
         </div>
-      </div>
+      </header>
+
+      {/* Conteúdo Central Full Screen com Transição de 4 Segundos */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 py-4 sm:py-6 flex flex-col justify-center items-center overflow-hidden z-20">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={slide.id}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+            className="w-full flex flex-col justify-center gap-6"
+          >
+            {/* Header do Slide */}
+            <div className="text-center space-y-2 max-w-3xl mx-auto">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200/60 shadow-2xs">
+                <SlideIcon size={13} />
+                {slide.badge}
+              </span>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+                {slide.title}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed">
+                {slide.description}
+              </p>
+            </div>
+
+            {/* Painel de Indicadores e Conteúdo do Slide */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+              {slide.metrics.map((metric, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between"
+                >
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    {metric.label}
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
+                    {metric.value}
+                  </div>
+                  <div className="text-xs text-slate-500 font-medium mt-1">
+                    {metric.desc}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Destaques Operacionais */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+              <div className="text-xs font-black text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <FileCheck2 size={16} className="text-blue-600" />
+                <span>Capacidades Principais do Módulo</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {slide.highlights.map((hl, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-700 font-medium"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 shrink-0" />
+                    <span>{hl}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      {/* Barra Inferior com Controles e Indicadores dos Slides */}
+      <footer className="w-full px-4 sm:px-8 py-3.5 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 z-30 shrink-0">
+        {/* Indicadores de Progresso de Slides (4 Segundos cada) */}
+        <div className="flex items-center gap-2.5">
+          {SLIDES.map((s, idx) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setCurrentSlideIndex(idx)}
+              className={`h-2 rounded-full transition-all cursor-pointer ${
+                currentSlideIndex === idx
+                  ? "w-8 bg-blue-600"
+                  : "w-2.5 bg-slate-200 hover:bg-slate-300"
+              }`}
+              title={`Ir para o slide ${idx + 1}`}
+            />
+          ))}
+          <span className="text-[11px] font-bold text-slate-400 ml-2">
+            Slide {currentSlideIndex + 1} de {SLIDES.length} (4s)
+          </span>
+        </div>
+
+        {/* Controles de Navegação */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+            title={isPlaying ? "Pausar apresentação" : "Reproduzir automaticamente"}
+          >
+            {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+          </button>
+          <button
+            type="button"
+            onClick={prevSlide}
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+            title="Slide anterior"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={nextSlide}
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+            title="Próximo slide"
+          >
+            <ChevronRight size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={onContinue}
+            className="ml-3 px-5 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-sm cursor-pointer"
+          >
+            <span>Aceder ao SIGEP</span>
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }

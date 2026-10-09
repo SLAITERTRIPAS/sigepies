@@ -349,12 +349,10 @@ export default function MatrixView({
         user?.unidadeOrganica ||
         user?.unidade ||
         "Songo",
-      direcao:
-        data.unidadeSelecionada ||
-        data.direcao ||
-        user?.direcao ||
-        user?.servicoCentral ||
-        "Direção Geral",
+      direcao: (() => {
+        const raw = data.unidadeSelecionada || data.direcao || user?.direcao || user?.servicoCentral || "Gabinete do Diretor-Geral";
+        return (raw.toLowerCase().includes("direção geral") || raw.toLowerCase().includes("direcao geral")) ? "Gabinete do Diretor-Geral" : raw;
+      })(),
       departamento: (() => {
         const dStr = String(data.departamento || user?.departamento || "").trim();
         if (dStr) return dStr;
@@ -683,13 +681,10 @@ export default function MatrixView({
                           user?.unidadeOrganica ||
                           user?.unidade ||
                           "Songo",
-                        direcao:
-                          data.unidadeSelecionada ||
-                          data.direcao ||
-                          editingActivity.direcao ||
-                          user?.direcao ||
-                          user?.servicoCentral ||
-                          "Direção Geral",
+                        direcao: (() => {
+                          const raw = data.unidadeSelecionada || data.direcao || editingActivity.direcao || user?.direcao || user?.servicoCentral || "Gabinete do Diretor-Geral";
+                          return (raw.toLowerCase().includes("direção geral") || raw.toLowerCase().includes("direcao geral")) ? "Gabinete do Diretor-Geral" : raw;
+                        })(),
                         departamento:
                           data.departamento ||
                           editingActivity.departamento ||

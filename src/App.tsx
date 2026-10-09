@@ -55,6 +55,7 @@ import { MENU_NAVIGATION_MAP, getMenuNavigationConfig } from "./lib/menuNavigati
 import {
   firestoreService,
   wipeDatabaseExceptExclusions,
+  ensureFirebaseAuth,
 } from "./lib/firestoreService";
 import { databaseMaintenance } from "./lib/databaseMaintenance";
 import {
@@ -599,10 +600,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Garantir autenticação do Firebase imediatamente no arranque para evitar erros de permissão
+    ensureFirebaseAuth();
+
     // InitialAuthStateCheck de alta velocidade para arranque instantâneo
     const authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (!firebaseUser) {
+          ensureFirebaseAuth();
           return;
         }
 
@@ -863,20 +868,28 @@ export default function App() {
             designacao: "SLAITER TRIPAS",
             email: "slaitertripas@gmail.com",
             usuario: "slaitertripas@gmail.com",
-            role: "Proprietário / Administrador Geral",
-            cargo: "Proprietário, Programador e Administrador Geral",
-            cargoChefia: "Nenhum (Administrador Geral)",
-            funcao: "Proprietário, Programador e Administrador Geral",
-            categoria: "Proprietário, Programador e Administrador Geral",
-            orgao: "Administração Geral do Sistema",
-            unidade: "Administração Geral do Sistema",
-            unidadeOrganica: "Administração Geral do Sistema",
-            direcao: "Administração Geral do Sistema",
-            departamento: "Administração Geral do Sistema",
-            status: "Ativo / Proprietário e Administrador Geral",
+            tipoUtilizador: "Administrador Global do Sistema",
+            role: "Administrador Global do Sistema",
+            cargo: "Administrador Global",
+            cargoChefia: "-",
+            funcao: "Administrador Global",
+            categoria: "Administrador Global",
+            vinculacaoInstitucional: "Nenhuma",
+            participacaoQuadroPessoal: "Não",
+            orgao: "-",
+            unidade: "-",
+            unidadeOrganica: "-",
+            direcao: "Nulo",
+            departamento: "Nulo",
+            reparticao: "Nulo",
+            setor: "Nulo",
+            instituicaoId: "",
+            status: "Ativo",
             efetivo: false,
+            isQuadro: false,
             isOwner: true,
             isProgrammer: true,
+            isGlobalAdmin: true,
             mustChangePassword: false,
             password: "231383ft",
           };
@@ -1131,6 +1144,9 @@ export default function App() {
     let unsubEfetivo = () => {};
 
     if (currentUser) {
+      // Garantir credencial do Firebase para utilizadores autenticados
+      ensureFirebaseAuth();
+
       // Basic data needed across views
       unsubMatrix = firestoreService.matrixActivities.subscribe(
         setMatrixActivities,
@@ -2114,6 +2130,19 @@ export default function App() {
             onDeleteBook={(id) => firestoreService.libraryVisits.delete(id)}
             onDeleteNote={(id) => firestoreService.notes.delete(id)}
             onUpdateUser={(id, data) => firestoreService.users.update(id, data)}
+            onAddMatrixActivity={(activity: any) => {
+              setMatrixActivities((prev) => {
+                if (prev.some((a) => a.id === activity.id)) {
+                  return prev.map((a) => (a.id === activity.id ? activity : a));
+                }
+                return [activity, ...prev];
+              });
+            }}
+            onUpdateMatrixActivity={(id: string, data: any) => {
+              setMatrixActivities((prev) =>
+                prev.map((a) => (a.id === id ? { ...a, ...data } : a))
+              );
+            }}
             onLogin={handleLogin}
             onSelectAdminRoleMode={handleSelectAdminRoleMode}
             onSelectSector={handleSelectSector}

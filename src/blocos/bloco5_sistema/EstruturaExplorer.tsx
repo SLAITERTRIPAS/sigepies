@@ -27,6 +27,7 @@ import {
   Check,
   ExternalLink,
   Search,
+  Clock,
   Image as ImageIcon,
 } from "lucide-react";
 import { firestoreService, fetchCollection } from "../../lib/firestoreService";
@@ -48,6 +49,7 @@ import EditSectorModal from "../../components/EditSectorModal";
 import SectorMenuConfigModal from "../../components/SectorMenuConfigModal";
 import RelatorioTecnicoModal from "../../components/RelatorioTecnicoModal";
 import OrganogramaModal from "../../components/OrganogramaModal";
+import { HistoricoChefiasView } from "./SistemaSubViews";
 import InstitutionalProfileModal from "../../components/modals/InstitutionalProfileModal";
 import { Sliders, GitFork } from "lucide-react";
 import { getSystemLogo } from "../../lib/logoService";
@@ -238,6 +240,7 @@ export const EstruturaExplorer = ({
   const [organogramaTargetInst, setOrganogramaTargetInst] = useState<any | null>(null);
   const [showInstProfileModal, setShowInstProfileModal] = useState(false);
   const [instToEditProfile, setInstToEditProfile] = useState<any | null>(null);
+  const [showHistoricoChefiasModal, setShowHistoricoChefiasModal] = useState(false);
 
   // Base Unificada de Alocação de Colaboradores (Colaboradores do Firestore + Utilizadores de Autenticação)
   const allocationBaseUsers = useMemo(() => {
@@ -2423,6 +2426,14 @@ export const EstruturaExplorer = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setShowHistoricoChefiasModal(true)}
+                  className="bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 transition shadow cursor-pointer border border-white/20"
+                >
+                  <Clock size={16} className="text-amber-400" />
+                  Histórico de Chefias
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
                     const inst = instituicoes.find((i) => i.id === selectedInstId) || ispsDefault;
                     setOrganogramaTargetInst(inst);
@@ -3477,6 +3488,34 @@ export const EstruturaExplorer = ({
             notifyEstruturaUpdated();
           }}
         />
+      )}
+
+      {showHistoricoChefiasModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-gray-100">
+            <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Clock className="text-amber-400" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-base">Histórico de Chefias & Direção Institucional</h3>
+                  <p className="text-xs text-blue-100">Registo oficial e cronológico de dirigentes e chefes de departamento</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHistoricoChefiasModal(false)}
+                className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 bg-gray-50">
+              <HistoricoChefiasView />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

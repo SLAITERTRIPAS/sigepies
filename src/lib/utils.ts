@@ -1189,7 +1189,7 @@ export function hasChefiaPosition(c: any): boolean {
     return false;
   }
 
-  // 1. Verificar se o campo cargoChefia tem um valor explícito e válido
+  // 1. Verificar se o campo cargoChefia tem um valor explícito e válido atribuído manualmente por administradores
   const explicitChefia = String(c.cargoChefia || "").trim();
   const lowerExplicit = explicitChefia.toLowerCase();
   if (
@@ -1204,43 +1204,13 @@ export function hasChefiaPosition(c: any): boolean {
     return true;
   }
 
-  // 2. Verificar combinação de cargo, função e título
-  const combinedContext = `${c.cargoChefia || ""} ${c.cargo || ""} ${c.funcao || ""} ${c.titulo || ""}`.trim();
-  const lowerCombined = combinedContext.toLowerCase();
-
-  if (
-    !lowerCombined ||
-    lowerCombined === "nenhum" ||
-    lowerCombined === "-" ||
-    lowerCombined.includes("nenhum cargo")
-  ) {
-    return false;
+  // 2. Apenas utilizadores com isChefia explicitamente true possuem perfil de chefia (sem inferência automática)
+  if (c.isChefia === true) {
+    return true;
   }
 
-  const chefiaKeywords = [
-    "chefe",
-    "diretor",
-    "director",
-    "directora",
-    "reitor",
-    "vice-reitor",
-    "coordenador",
-    "coordenadora",
-    "responsavel",
-    "responsável",
-    "presidente",
-    "comandante",
-    "proprietario",
-    "proprietário",
-    "administrador de sistema",
-    "administrador do sistema",
-    "adjunto pedagogico",
-    "adjunto pedagógico",
-    "gerente",
-    "encarregado",
-  ];
-
-  return chefiaKeywords.some((k) => lowerCombined.includes(k));
+  // Nenhuma atribuição automática de chefia por palavras-chave em cargo/função
+  return false;
 }
 
 export function mergeColaboradores(firestoreData: any[]): any[] {
@@ -1431,9 +1401,11 @@ export function mergeColaboradores(firestoreData: any[]): any[] {
     const isOwnerProgrammer =
       (c.email && c.email.toLowerCase().trim() === "slaitertripas@gmail.com") ||
       c.id === "ST849547771" ||
+      c.uid === "ST849547771" ||
       (c.nome && c.nome.toUpperCase().includes("SLAITER TRIPAS")) ||
       (c.cargoChefia && c.cargoChefia.toLowerCase().includes("proprietario")) ||
-      (c.categoria && c.categoria.toLowerCase().includes("proprietario")) ||
+      (c.cargo && c.cargo.toLowerCase().includes("administrador global")) ||
+      (c.role && c.role.toLowerCase().includes("administrador global")) ||
       (c.cargo && c.cargo.toLowerCase().includes("proprietario"));
 
     if (isOwnerProgrammer) {

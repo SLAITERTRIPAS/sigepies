@@ -131,6 +131,8 @@ interface ViewRendererProps {
   financialData?: any;
   setFinancialData?: (data: any) => void;
   activities?: any[];
+  onAddMatrixActivity?: (data: any) => void;
+  onUpdateMatrixActivity?: (id: string, data: any) => void;
   onSelectSector?: (sector: string) => void;
   onSelectAdminRoleMode?: (mode: "admin" | "chefe" | "user") => void;
 }
@@ -179,6 +181,8 @@ const ViewRendererInner: React.FC<ViewRendererProps> = ({
   financialData = [],
   setFinancialData = (_data?: any) => {},
   activities = [],
+  onAddMatrixActivity,
+  onUpdateMatrixActivity,
   onSelectSector,
   onSelectAdminRoleMode,
 }) => {
@@ -889,8 +893,19 @@ const ViewRendererInner: React.FC<ViewRendererProps> = ({
           title={dashboardTitle || "Plano Setorial"}
           matrixActivities={matrixActivities}
           colaboradores={colaboradores}
-          onAddMatrixActivity={(data: any) => firestoreService.matrixActivities.add(data)}
-          onUpdateMatrixActivity={(id: string, data: any) => firestoreService.matrixActivities.update(id, data)}
+          onAddMatrixActivity={async (data: any) => {
+            const res = await firestoreService.matrixActivities.add(data);
+            if (onAddMatrixActivity) {
+              onAddMatrixActivity({ ...data, id: res || data.id });
+            }
+            return res;
+          }}
+          onUpdateMatrixActivity={async (id: string, data: any) => {
+            await firestoreService.matrixActivities.update(id, data);
+            if (onUpdateMatrixActivity) {
+              onUpdateMatrixActivity(id, data);
+            }
+          }}
           onShowAlert={onShowAlert}
           onBack={goBack}
         />

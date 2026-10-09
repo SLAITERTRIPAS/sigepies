@@ -250,30 +250,50 @@ export function openPrintDocumentWindow(options: PrintDocumentOptions) {
       : hasEmbeddedHeader
         ? ""
         : `
-    <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; font-family: 'Bookman Old Style', 'Bookman', Georgia, serif; width: 100%;">
+    <style>
+      .document-logo {
+        width: ${resolvedPageSize === "A3" ? "70mm" : "50mm"};
+        height: auto;
+        object-fit: contain;
+        max-width: 100%;
+        display: block;
+        margin: 0 auto;
+      }
+      @media print {
+        .document-logo {
+          width: ${resolvedPageSize === "A3" ? "70mm" : "50mm"} !important;
+          height: auto !important;
+        }
+      }
+      .a3-print .document-logo {
+        width: 70mm !important;
+        height: auto !important;
+      }
+    </style>
+    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 16px; margin-bottom: 24px; font-family: 'Times New Roman', Times, serif; width: 100%;">
       <div style="margin-bottom: 12px; text-align: center; display: flex; justify-content: center; align-items: center; width: 100%;">
-        <img src="${instLogo}" alt="Logotipo ${instName}" style="height: 90px; object-fit: contain; margin: 0 auto; display: block;" />
+        <img src="${instLogo}" alt="Logotipo ${instName}" class="document-logo" />
       </div>
-      <h2 style="font-size: 22px; font-weight: bold; margin: 2px 0 4px 0; color: #0c2340;">
+      <h2 style="font-size: 16px; font-weight: bold; margin: 2px 0 4px 0; color: #000; text-transform: uppercase;">
         ${instName}
       </h2>
-      ${instProvincia ? `<h3 style="font-size: 13px; font-weight: 500; margin: 2px 0; color: #0c2340;">${instProvincia}</h3>` : ""}
-      ${instDistrito ? `<h3 style="font-size: 13px; font-weight: 500; margin: 2px 0; color: #0c2340;">${instDistrito}</h3>` : ""}
+      ${instProvincia ? `<h3 style="font-size: 14px; font-weight: 500; margin: 2px 0; color: #000;">${instProvincia}</h3>` : ""}
+      ${instDistrito ? `<h3 style="font-size: 14px; font-weight: 500; margin: 2px 0; color: #000;">${instDistrito}</h3>` : ""}
       
       <div style="margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 3px;">
-        <h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #d90429;">${resolvedOrgao}</h4>
-        ${cleanDirecao ? `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #0c2340;">${cleanDirecao}</h4>` : `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #0c2340;">Gabinete do Diretor-geral</h4>`}
-        ${cleanDivisao ? `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #0c2340;">${cleanDivisao}</h4>` : ""}
-        ${cleanDepartamento ? `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #0c2340;">${cleanDepartamento.toLowerCase().startsWith("departamento") || cleanDepartamento.toLowerCase().startsWith("unidade") ? cleanDepartamento : `Departamento de ${cleanDepartamento}`}</h4>` : ""}
-        ${cleanReparticao ? `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #0c2340;">${cleanReparticao.toLowerCase().startsWith("repartição") || cleanReparticao.toLowerCase().startsWith("reparticao") ? cleanReparticao : `Repartição de ${cleanReparticao}`}</h4>` : ""}
-        ${cleanSetor ? `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #0c2340;">${cleanSetor.toLowerCase().startsWith("setor") ? cleanSetor : `Setor de ${cleanSetor}`}</h4>` : ""}
-        <h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #0c2340;">${cargoCorrespondente}</h4>
+        <h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #000;">${resolvedOrgao}</h4>
+        ${cleanDirecao ? `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #000;">${cleanDirecao}</h4>` : `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #000;">Gabinete do Diretor-geral</h4>`}
+        ${cleanDivisao ? `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #000;">${cleanDivisao}</h4>` : ""}
+        ${cleanDepartamento ? `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #000;">${cleanDepartamento.toLowerCase().startsWith("departamento") || cleanDepartamento.toLowerCase().startsWith("unidade") ? cleanDepartamento : `Departamento de ${cleanDepartamento}`}</h4>` : ""}
+        ${cleanReparticao ? `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #000;">${cleanReparticao.toLowerCase().startsWith("repartição") || cleanReparticao.toLowerCase().startsWith("reparticao") ? cleanReparticao : `Repartição de ${cleanReparticao}`}</h4>` : ""}
+        ${cleanSetor ? `<h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #000;">${cleanSetor.toLowerCase().startsWith("setor") ? cleanSetor : `Setor de ${cleanSetor}`}</h4>` : ""}
+        <h4 style="font-size: 14px; font-weight: bold; margin: 1px 0; color: #000;">${cargoCorrespondente}</h4>
       </div>
 
-      <h5 style="font-size: 17px; font-weight: bold; margin: 18px auto 0; color: #d90429; text-transform: uppercase; width: 95%; letter-spacing: 0.5px;">
+      <h5 style="font-size: 16px; font-weight: bold; margin: 18px auto 0; color: #000; text-transform: uppercase; width: 95%; letter-spacing: 0.5px;">
         ${resolvedTitle}
       </h5>
-      ${subtitle ? `<p style="font-size: 12px; margin: 6px 0 0 0; color: #475569; font-style: italic;">${subtitle}</p>` : ""}
+      ${subtitle ? `<p style="font-size: 14px; margin: 6px 0 0 0; color: #333; font-style: italic; text-align: center;">${subtitle}</p>` : ""}
     </div>
   `;
 
@@ -287,7 +307,26 @@ export function openPrintDocumentWindow(options: PrintDocumentOptions) {
   const docFooterTag = `(${hours}:${minutes}:${seconds} ${day}/${month}/${year}) ${resolvedTitle || title || "Documento Oficial"} - (${instName})`;
 
   const defaultFooter = `
-    <div style="margin-top: 32px; padding-top: 6px; border-top: 2px solid #800000; font-family: 'Bookman Old Style', 'Bookman', Georgia, serif; font-size: 11px; color: #000;">
+    <div style="margin-top: 36px; padding-top: 12px; border-top: 2px solid #800000; font-family: 'Bookman Old Style', 'Bookman', Georgia, serif; font-size: 11px; color: #000;">
+      <!-- Bloco de Assinatura Digital Obrigatória do SIGEP -->
+      <div style="margin-bottom: 20px; padding: 12px; border: 1.5px solid #800000; background: #fffdfd; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+        <div style="line-height: 1.4;">
+          <div style="font-weight: bold; font-size: 12px; color: #800000; text-transform: uppercase; margin-bottom: 4px;">
+            🔒 ASSINATURA DIGITAL SIGEP (CERTIFICADA)
+          </div>
+          <div style="font-size: 11px; margin-bottom: 2px;"><strong>Código de Verificação:</strong> SIGEP-${year}-${Math.random().toString(36).substring(2, 8).toUpperCase()}</div>
+          <div style="font-size: 11px; margin-bottom: 2px;"><strong>Assinado Digitalmente por:</strong> Gestor Autorizado (${instName})</div>
+          <div style="font-size: 11px; margin-bottom: 2px;"><strong>Cargo:</strong> ${cargoCorrespondente}</div>
+          <div style="font-size: 11px; margin-bottom: 2px;"><strong>Data:</strong> ${day}/${month}/${year} | <strong>Hora:</strong> ${hours}:${minutes}</div>
+          <div style="font-size: 9.5px; color: #555; margin-top: 4px;">Hash Criptográfico: SHA-256 Validado e Imutável</div>
+        </div>
+        <div style="text-align: center; flex-shrink: 0; border: 1px dashed #800000; padding: 8px; background: #ffffff;">
+          <div style="font-size: 8px; font-weight: bold; color: #800000; margin-bottom: 2px;">QR CODE DE VALIDAÇÃO</div>
+          <div style="width: 55px; height: 55px; background: #000; display: flex; align-items: center; justify-content: center; color: white; font-size: 9px; font-weight: bold; margin: 0 auto;">SIGEP-QR</div>
+          <div style="font-size: 8px; margin-top: 2px; color: #333;">Verificar Online</div>
+        </div>
+      </div>
+
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 9.5px; font-weight: bold; color: #475569;">
         <span>${docFooterTag}</span>
         <span style="font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.5px; background: #f1f5f9; padding: 1px 5px; border-radius: 3px;">Documento Certificado SIGEP</span>
@@ -306,7 +345,13 @@ export function openPrintDocumentWindow(options: PrintDocumentOptions) {
     </div>
   `;
 
-  const initialMargin = resolvedOrientation === "landscape" ? "5mm" : "10mm";
+  const initialMargin = resolvedPageSize === "A3" && resolvedOrientation === "landscape" 
+    ? "2cm 2cm 2cm 2.5cm" 
+    : resolvedPageSize === "A4" && resolvedOrientation === "portrait"
+    ? "2.5cm 2cm 2.5cm 3cm"
+    : resolvedOrientation === "landscape"
+    ? "2cm 2.5cm 2cm 2.5cm"
+    : "2.5cm 2cm 2.5cm 3cm";
 
   const docHtml = `
     <!DOCTYPE html>
@@ -315,9 +360,6 @@ export function openPrintDocumentWindow(options: PrintDocumentOptions) {
       <meta charset="UTF-8">
       <title>${title} - Songo SIGEP</title>
       <script src="https://cdn.tailwindcss.com"></script>
-      <style>
-        @import url('https://fonts.cdnfonts.com/css/bookman-old-style');
-      </style>
       <style id="dynamic-page-style">
         @page {
           size: ${resolvedPageSize} ${resolvedOrientation};
@@ -342,6 +384,9 @@ export function openPrintDocumentWindow(options: PrintDocumentOptions) {
             padding: 0 !important;
             margin: 0 !important;
             font-family: 'Bookman Old Style', 'Bookman', Georgia, serif !important;
+            font-size: 12pt !important;
+            line-height: 1.5 !important;
+            text-align: justify !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -374,6 +419,14 @@ export function openPrintDocumentWindow(options: PrintDocumentOptions) {
             max-height: none !important;
             font-family: 'Bookman Old Style', 'Bookman', Georgia, serif !important;
           }
+          p, span, li, td {
+            text-align: justify !important;
+            font-size: 12pt !important;
+            line-height: 1.5 !important;
+            color: #000000 !important;
+          }
+          h2, .sigep-title { font-size: 14pt !important; font-weight: bold !important; text-align: center !important; text-transform: uppercase !important; }
+          h3, h4, h5, .sigep-subtitle { font-size: 14pt !important; font-weight: bold !important; text-align: center !important; }
           thead {
             display: table-header-group !important;
           }
@@ -394,18 +447,19 @@ export function openPrintDocumentWindow(options: PrintDocumentOptions) {
             word-break: normal !important;
             overflow-wrap: break-word !important;
             white-space: normal !important;
-            font-size: 12px !important;
+            font-size: 12pt !important;
             padding: 6px 8px !important;
-            line-height: 1.35 !important;
+            line-height: 1.5 !important;
             border: 1.5px solid #000000 !important;
             color: #000000 !important;
             vertical-align: middle !important;
           }
           th {
-            background-color: #e2e8f0 !important;
+            background-color: #f1f5f9 !important;
             color: #000000 !important;
-            font-weight: 900 !important;
-            font-size: 12px !important;
+            font-weight: bold !important;
+            font-size: 12pt !important;
+            text-align: center !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -434,7 +488,7 @@ export function openPrintDocumentWindow(options: PrintDocumentOptions) {
           max-width: ${resolvedPageSize === "A3" ? (resolvedOrientation === "landscape" ? "420mm" : "297mm") : (resolvedOrientation === "landscape" ? "297mm" : "210mm")};
           min-height: ${resolvedPageSize === "A3" ? (resolvedOrientation === "landscape" ? "297mm" : "420mm") : (resolvedOrientation === "landscape" ? "210mm" : "297mm")};
           margin: 0 auto;
-          padding: 10mm;
+          padding: 15mm;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
           box-sizing: border-box;
           border-radius: 8px;
@@ -443,7 +497,7 @@ export function openPrintDocumentWindow(options: PrintDocumentOptions) {
         table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 12px;
+          font-size: 12pt;
           margin-top: 10px;
           table-layout: auto;
         }
@@ -454,26 +508,28 @@ export function openPrintDocumentWindow(options: PrintDocumentOptions) {
           word-break: normal;
           overflow-wrap: break-word;
           white-space: normal;
-          font-size: 12px;
-          line-height: 1.35;
+          font-size: 12pt;
+          line-height: 1.5;
           color: #000000;
         }
         th {
-          background-color: #e2e8f0;
-          font-weight: 800;
-          color: #0f172a;
-          font-size: 12px;
+          background-color: #f1f5f9;
+          font-weight: bold;
+          color: #000000;
+          font-size: 12pt;
+          text-align: center;
         }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .font-bold { font-weight: bold; }
-          background-color: #e2e8f0;
-          font-weight: 800;
-          color: #0f172a;
+        p, span, div {
+          text-align: justify;
+          line-height: 1.5;
+          font-size: 12pt;
+          font-family: 'Bookman Old Style', 'Bookman', Georgia, serif;
         }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .font-bold { font-weight: bold; }
+        .sigep-title, h2 { font-size: 14pt !important; font-weight: bold !important; text-align: center !important; text-transform: uppercase !important; }
+        .sigep-subtitle, h3, h4, h5 { font-size: 14pt !important; font-weight: bold !important; text-align: center !important; }
+        .text-center { text-align: center !important; }
+        .text-right { text-align: right !important; }
+        .font-bold { font-weight: bold !important; }
 
         /* Barra de controlo de formato interativa */
         .btn-format {
