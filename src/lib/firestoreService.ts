@@ -1347,6 +1347,8 @@ export const firestoreService = {
   direcoes_excluidas: createCollectionService<any>("direcoes_excluidas"),
   instituicoes: createCollectionService<any>("instituicoes"),
   sector_menu_configs: createCollectionService<any>("sector_menu_configs"),
+  hierarchy_user_links: createCollectionService<any>("hierarchy_user_links"),
+  audit_logs: createCollectionService<any>("audit_logs", "timestamp"),
   estrutura_renames: createCollectionService<any>("estrutura_renames"),
   checkSupplierExists: async (nif: string, nome: string): Promise<boolean> => {
     try {

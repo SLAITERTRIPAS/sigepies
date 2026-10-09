@@ -2734,8 +2734,8 @@ export default function AcaoOrcamentalView({
         </div>
       )}
 
-      {/* Reforço de Crédito Tab */}
-      {activeTab === "reforco" && (
+      {/* Reforço de Crédito Tab - Apenas Planificação/DPEP */}
+      {activeTab === "reforco" && isPlanificacaoOrDPEP && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Formulário */}
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm lg:col-span-1">

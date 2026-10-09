@@ -217,12 +217,19 @@ export const isActivityFromUserSector = (activity: any, user: any): boolean => {
   }
 
   // Comparação estrita por setor / repartição do utilizador para evitar mistura de setores
-  if (uSec && (aSec === uSec || aSec.includes(uSec) || uSec.includes(aSec) || aOrig.includes(uSec))) {
+  // Usamos match exato se possível, ou verificação de inclusão precisa.
+  const uSecClean = uSec.replace(/\s+/g, '');
+  const aSecClean = aSec.replace(/\s+/g, '');
+  
+  if (uSecClean && aSecClean && (aSecClean === uSecClean)) {
     return true;
   }
 
   // Se não tem setor específico, mas tem departamento exato
-  if (!uSec && uDept && (aDept === uDept || aDept.includes(uDept) || uDept.includes(aDept))) {
+  const uDeptClean = uDept.replace(/\s+/g, '');
+  const aDeptClean = aDept.replace(/\s+/g, '');
+  
+  if (!uSecClean && uDeptClean && aDeptClean && (aDeptClean === uDeptClean)) {
     return true;
   }
 
@@ -490,43 +497,37 @@ export const getAuthorizedActivities = (activities: any[], user: any) => {
   return validActivities.filter((a) => {
     if (!a) return false;
 
-    // As actividades sempre devem estar visíveis para o próprio criador / autor / responsável
+    // 1. Criadores e Administradores têm acesso total
     const creatorEmail = String(a.createdBy || a.emailCriador || a.autorEmail || a.responsavelEmail || a.publicadoPorEmail || "").toLowerCase().trim();
     const creatorName = String(a.createdByName || a.autor || a.autorNome || a.planificadoPor || a.criadoPor || a.publicadoPorNome || "").toLowerCase().trim();
-    const actResponsavel = String(a.responsavel || "").toLowerCase().trim();
-    const creatorNuit = String(a.nuit || a.nuitCriador || "").trim();
-    const actUserId = String(a.userId || a.userUid || a.uid || "").trim();
-    
     const uName = String(user.nome || user.name || user.displayName || "").toLowerCase().trim();
-    const uNuit = String(user.nuit || "").trim();
-    const uIdStr = String(uId || "").trim();
+    const uEmail = String(user.email || "").toLowerCase().trim();
+    const uSector = String(user.setor || user.reparticao || "").toLowerCase().trim();
     
-    const isCreator =
-      (creatorEmail && uEmail && (creatorEmail === uEmail || creatorEmail.includes(uEmail) || uEmail.includes(creatorEmail))) ||
-      (actUserId && uIdStr && actUserId === uIdStr) ||
-      (creatorNuit && uNuit && creatorNuit === uNuit) ||
-      (creatorName && uName && (creatorName === uName || creatorName.includes(uName) || uName.includes(creatorName))) ||
-      (actResponsavel && uName && (actResponsavel === uName || actResponsavel.includes(uName) || uName.includes(actResponsavel))) ||
-      (String(a.createdBy || "").toLowerCase().trim() === uName) ||
-      (String(a.createdBy || "").toLowerCase().trim() === uEmail);
+    if (
+      (creatorEmail && uEmail && creatorEmail === uEmail) ||
+      (creatorName && uName && creatorName === uName) ||
+      isSysAdmin
+    ) return true;
 
-    if (isCreator) return true;
+    // 2. Isolamento estrito para UGEA
+    const isActUgea = 
+      (a.departamento && a.departamento.toLowerCase().includes("ugea")) ||
+      (a.setor && a.setor.toLowerCase().includes("ugea")) ||
+      (a.reparticao && a.reparticao.toLowerCase().includes("ugea"));
+    const uSectorRaw = String(user.setor || user.reparticao || user.departamento || "").toLowerCase().trim();
+    const isUserUgea = uSectorRaw.includes("ugea") || uSectorRaw.includes("aquisicoes");
 
-    // Administrador de Sistema tem acesso total para suporte e manutenção
-    if (isSysAdmin) return true;
+    if (isActUgea && !isUserUgea) return false;
+    if (isUserUgea && !isActUgea) return false;
 
-    // Regra estrita para o Setor de Monitoria e DPEP (Planificação):
-    // Devem ser avaliados ANTES de isPlannedByOwnSector para evitar que a Direção genérica ("Gabinete do Diretor-Geral")
-    // exponha actividades não submetidas de outros setores ao DPEP / Planificação.
-    const userTitleCargo = String(user.title || user.cargo || user.cargoChefia || "").toLowerCase();
-    const isMonitoriaUser =
-      uSector.includes("monitoria") ||
-      uDept.includes("monitoria") ||
-      uRole.includes("monitoria") ||
-      userTitleCargo.includes("monitoria") ||
-      String(user.areaDeAfetacao || "").toLowerCase().includes("monitoria");
+    // 3. Isolamento estrito para Ajudas de Custo (Capítulo 11)
+    const isAjudaDeCusto = Array.isArray(a.rubricas) && a.rubricas.some((r: any) => String(r.rubrica || "").toLowerCase().includes("ajuda") || String(r.rubrica || "").startsWith("11"));
+    if (isAjudaDeCusto) {
+      // Apenas o próprio setor criador pode ver suas ajudas de custo
+      return isActivityFromUserSector(a, user);
+    }
 
-    // Verificar se foi enviado para o Setor, Repartição, Departamento ou Gabinete do utilizador
     const sentToSectors = [
       a.enviadoParaSetor,
       a.setorDestino,
@@ -539,163 +540,8 @@ export const getAuthorizedActivities = (activities: any[], user: any) => {
       .filter(Boolean)
       .map((x) => String(x).toLowerCase().trim());
 
-    const sentTo = [
-      a.enviadoPara,
-      a.submetidoPara,
-      a.encaminhadoPara,
-      a.destinatario,
-      a.destinatarioEmail,
-      a.responsavelEmail,
-      a.atribuidoA,
-      a.responsavelId,
-      a.aprovadorAtual,
-    ]
-      .filter(Boolean)
-      .map((x) => String(x).toLowerCase().trim());
-
-    if (isMonitoriaUser) {
-      const st = String(a.status || "").toLowerCase();
-      if (st === "rascunho" || st === "draft") {
-        return false;
-      }
-
-      const isApprovedOrInstitucional =
-        st === "institucional" ||
-        st === "planeado" ||
-        st === "pendente_monitoria" ||
-        st === "aprovado" ||
-        st === "aprovada" ||
-        st === "homologado" ||
-        st === "publicado" ||
-        st === "em_andamento" ||
-        st === "em_execucao" ||
-        st === "concluido" ||
-        st === "executada" ||
-        st === "realizada" ||
-        st === "agendada" ||
-        a.isAprovada === true ||
-        a.publicado === true ||
-        a.statusPesoe === "publicado";
-
-      const isSentToMonitoria =
-        sentToSectors.some((s) => s.includes("monitoria")) ||
-        sentTo.some((s) => s.includes("monitoria")) ||
-        String(a.setor || "").toLowerCase().includes("monitoria") ||
-        String(a.setorDestino || "").toLowerCase().includes("monitoria");
-
-      if (isApprovedOrInstitucional || isSentToMonitoria) {
-        return true;
-      }
-
-      return false;
-    }
-
-    // Regra estrita para o DPEP / Chefe do DPEP (ex: VLV117780880 - Veca Vicente):
-    // O Chefe do DPEP e o Setor de Planificação apenas visualizam as suas próprias actividades
-    // ou propostas de outros setores que tenham sido EFETIVAMENTE SUBMETIDAS/ENVIADAS à Planificação/DPEP.
-    const isDPEPUser =
-      !isMonitoriaUser &&
-      (uDept.includes("dpep") ||
-      uDept.includes("planificação") ||
-      uDept.includes("planificacao") ||
-      uRole.includes("dpep") ||
-      uRole.includes("planificação") ||
-      uRole.includes("planificacao") ||
-      userTitleCargo.includes("dpep") ||
-      userTitleCargo.includes("planificação") ||
-      userTitleCargo.includes("planificacao"));
-
-    if (isDPEPUser) {
-      const aDept = String(a.departamento || "").toLowerCase();
-      const aSect = String(a.setor || a.reparticao || "").toLowerCase();
-      const aDir = String(a.direcao || "").toLowerCase();
-      const aOrig = String(a.origem || a.setorOrigin || a.setorCriador || a.unidadeOrganica || "").toLowerCase();
-
-      // Actividade própria do DPEP / Planificação
-      const isOwnDPEP =
-        aDept.includes("dpep") ||
-        aDept.includes("planificação") ||
-        aDept.includes("planificacao") ||
-        aSect.includes("dpep") ||
-        aSect.includes("planificação") ||
-        aSect.includes("planificacao") ||
-        aOrig.includes("dpep") ||
-        aOrig.includes("planificação") ||
-        aOrig.includes("planificacao");
-
-      if (isOwnDPEP) return true;
-
-      const isSentToDpep =
-        a.enviadoADPEP === true ||
-        a.submetidoADPEP === true ||
-        a.status === "planificacao" ||
-        a.status === "dpep_chefe" ||
-        a.status === "institucional" ||
-        a.status === "planeado" ||
-        a.status === "meritos" ||
-        sentToSectors.some((s) => s.includes("dpep") || s.includes("planifica")) ||
-        sentTo.some((s) => s.includes("dpep") || s.includes("planifica"));
-
-      const isSubmitted = a.submetido === true || (a.status && a.status !== "rascunho" && a.status !== "draft");
-
-      if (isSentToDpep && isSubmitted) {
-        return true;
-      }
-
-      return false;
-    }
-
-    const userSectorNames = [uSector, uDept, uDir, user.areaDeAfetacao || ""]
-      .filter(Boolean)
-      .map((x) => String(x).toLowerCase().trim());
-
-    // Se tiver sido expressamente tramitada/enviada para este utilizador ou setor/gabinete
-    const isExplicitlySent =
-      sentToSectors.some((targetSector) =>
-        userSectorNames.some((uSec) => targetSector.includes(uSec) || uSec.includes(targetSector))
-      ) ||
-      sentTo.some((target) =>
-        (uEmail && target.includes(uEmail)) || (uName && target.includes(uName))
-      );
-
-    if (isExplicitlySent) {
-      return true;
-    }
-
-    // Actividades NÃO SUBMETIDAS (em rascunho / fase de planificação individual local):
-    // Como a planificação é estritamente INDIVIDUAL e PRIVADA para cada utilizador logado,
-    // se a actividade ainda não foi enviada/submetida pelo criador e o utilizador atual NÃO é o criador,
-    // ela permanece confidencial e invisível até ser enviada ao superior ou o prazo expirar.
-    const isDraftOrSetorial =
-      !a.submetido ||
-      a.status === "rascunho" ||
-      a.status === "draft" ||
-      a.status === "setorial" ||
-      !a.status ||
-      a.status === "planeada";
-
-    if (isDraftOrSetorial) {
-      // Bloqueio absoluto de privacidade individual para actividades não submetidas
-      return false;
-    }
-
-    // A partir daqui, a actividade JÁ FOI SUBMETIDA (manualmente pelo utilizador ou auto-submetida por expiração de prazo):
-    // Segue a hierarquia de tramitação institucional e do plano setorial
-    const roles = getRoles(user.title || user.cargo || user.cargoChefia || "");
-    if (roles.isBoss || roles.isDG || roles.isDC || roles.isCD || roles.isCR) {
-      if (canAccessArea(user, a.direcao || "", a.departamento || "", a.setor || a.reparticao || "", a)) {
-        return true;
-      }
-    }
-
-    // No plano do setor, as actividades submetidas da sua própria área são visíveis
-    const isOwnSector = isActivityFromUserSector(a, user);
-    if (isOwnSector && a.submetido) {
-      return true;
-    }
-
-    // Por padrão estrito: qualquer actividade não criada, não pertencente ao próprio setor e não recebida de outro setor permanece invisível
-    return false;
+    // 3. Regra padrão para demais actividades (hierarquia)
+    return isActivityFromUserSector(a, user) || sentToSectors.some(s => uSector.includes(s) || s.includes(uSector));
   });
 };
 

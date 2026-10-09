@@ -2,24 +2,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Funções auxiliares de segurança
-    function isSignedIn() {
-      return request.auth != null;
+    // Funções auxiliares
+    function isSignedIn() { return request.auth != null; }
+    
+    // Regra default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // Regra para a coleção de usuários
+    // Regra para audit_logs
+    match /audit_logs/{logId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn(); // A ser refinado para administradores apenas
+      allow update, delete: if false;
+    }
+
+    // Regra para usuários (permite leitura/escrita do próprio documento)
     match /users/{userId} {
-      allow read, write: if true;
-    }
-
-    // Regra geral para todas as coleções do sistema
-    match /{collection}/{docId} {
-      allow read, write: if true;
-    }
-
-    // Regra recursiva para qualquer subcoleção
-    match /{path=**}/documents/{doc=**} {
-      allow read, write: if true;
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
   }
 }

@@ -42,7 +42,6 @@ import {
   getActiveInstituicaoId,
   setActiveInstituicaoId,
   applyRename,
-  saveEstruturaRename,
 } from "../../lib/instituicaoEstruturaService";
 import { TIPOS_INSTITUICAO_CONFIG, getTipoInstituicaoConfig } from "../../lib/instituicaoTiposConfig";
 import EditSectorModal from "../../components/EditSectorModal";

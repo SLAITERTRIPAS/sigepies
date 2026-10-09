@@ -333,27 +333,28 @@ export function applyRename(
 /**
  * Regista ou atualiza uma renomeação de setor/departamento/direção/órgão em tempo real
  */
-export async function saveEstruturaRename(
+export async function addEstruturaElement(
   instituicaoId: string,
   type: "orgao" | "direcao" | "departamento" | "reparticao",
-  oldName: string,
-  newName: string
+  name: string,
+  parentId?: string
 ) {
-  if (!oldName || !newName || oldName.trim() === newName.trim()) return;
-  const instId = instituicaoId || getActiveInstituicaoId();
-  const cleanOld = oldName.trim();
-  const cleanNew = newName.trim();
-
-  const docId = `${instId}_${type}_${cleanOld.toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
-
-  await firestoreService.estrutura_renames.set(docId, {
+  const cleanName = name.trim();
+  const docId = `${type}_${instituicaoId}_${Date.now()}`;
+  
+  const data: any = {
     id: docId,
-    instituicaoId: instId,
     type,
-    oldName: cleanOld,
-    newName: cleanNew,
-    updatedAt: new Date().toISOString(),
-  });
+    name: cleanName,
+    instituicaoId,
+    createdAt: new Date().toISOString(),
+  };
+  
+  if (parentId) data.parentId = parentId;
+
+  if (type === "orgao") await firestoreService.orgaos_custom.set(docId, { ...data, title: name });
+  else if (type === "direcao") await firestoreService.direcoes_organicas.set(docId, { ...data, title: name });
+  else await firestoreService.estrutura_adicionais.set(docId, data);
 
   notifyEstruturaUpdated();
 }

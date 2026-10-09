@@ -88,6 +88,7 @@ import {
 } from "./SistemaSubViews";
 import { isProgrammerData, filterDeleted } from "../../lib/utils";
 import { EstruturaExplorer } from "./EstruturaExplorer";
+import { EstruturaHierarquicaConfigView } from "./EstruturaHierarquicaConfigView";
 import CaixaMensagensView from "./CaixaMensagensView";
 import { SystemAlertsAdmin } from "../../components/SystemAlertsAdmin";
 
@@ -707,6 +708,7 @@ export default function SistemaView({
     { title: "Log de Actividade", icon: Clock },
     { title: "Gestão de Utilizadores", icon: Users },
     { title: "Gestão de Produtos e Preços", icon: Box },
+    { title: "Estrutura Hierárquica", icon: Network },
     { title: "Histórico de Chefias", icon: Clock },
     { title: "Template de Resumo", icon: Layout },
     { title: "Atualização", icon: Zap },
@@ -726,6 +728,7 @@ export default function SistemaView({
     { title: "Log de Actividade", icon: Clock },
     { title: "Gestão de Utilizadores", icon: Users, hidden: isGlobalAdmin ? false : !canManageUsers },
     { title: "Gestão de Produtos e Preços", icon: Box, hidden: isGlobalAdmin ? false : !(canManageUsers || isUGEAUser) },
+    { title: "Estrutura Hierárquica", icon: Network, hidden: !isGlobalAdmin },
     { title: "Histórico de Chefias", icon: Clock },
     { title: "Atualização", icon: Zap, hidden: isGlobalAdmin ? false : !canManageUsers },
     {
@@ -1404,6 +1407,10 @@ export default function SistemaView({
               onLogoApplied={(newLogo) => setSystemLogo(newLogo)}
             />
           </div>
+        );
+      case "Estrutura Hierárquica":
+        return (
+          <EstruturaHierarquicaConfigView />
         );
       case "Estrutura Geral da Instituição":
       case "Gestão das Instituições":

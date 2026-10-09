@@ -25,6 +25,7 @@ import { AlertModal } from "./components/ui/AlertModal";
 import BackupRestoreModal from "./components/modals/BackupRestoreModal";
 import FooterInfoModal from "./components/modals/FooterInfoModal";
 import { ViewRenderer } from "./components/ViewRenderer";
+import { LoginSplashSequence } from "./components/LoginSplashSequence";
 import { EFETIVO_GERAL_DATA } from "./constants/colaboradoresList";
 import { runAutomaticBackupIfNeeded, autoRestoreOnStartup } from "./lib/backupService";
 import {
@@ -47,6 +48,8 @@ import {
   determineUserRole,
   isTechnicianUser,
 } from "./lib/auth";
+import { wipeAllTestData } from "./lib/firestoreService";
+import { clearActivitiesForInstitution } from "./lib/cleanupService";
 import { ProcessingCircle } from "./components/ui/ProcessingCircle";
 import { MENU_NAVIGATION_MAP, getMenuNavigationConfig } from "./lib/menuNavigationConfig";
 import {
@@ -328,6 +331,19 @@ export default function App() {
     }
   }, [currentUser]);
 
+  // Limpeza de base de dados solicitada
+  useEffect(() => {
+    if (currentUser && isSuperBossUser(currentUser) && activeInst?.id) {
+      if (!localStorage.getItem(`sigep_wipe_done_${activeInst.id}`)) {
+        console.log(`🔥 Executando limpeza de atividades para instituição: ${activeInst.id}...`);
+        clearActivitiesForInstitution(activeInst.id).then(() => {
+          localStorage.setItem(`sigep_wipe_done_${activeInst.id}`, "true");
+          console.log("✅ Limpeza de atividades concluída.");
+        });
+      }
+    }
+  }, [currentUser, activeInst]);
+
   // Instituição Dinâmica do Utilizador Logado
   useEffect(() => {
     const instId = currentUser?.instituicaoId || currentUser?.instituicao || (typeof window !== "undefined" ? localStorage.getItem("sigep_active_instituicao_id") : null) || "isps";
@@ -412,6 +428,8 @@ export default function App() {
     }
   });
   const [showSectorSelector, setShowSectorSelector] = useState(false);
+  const [showLoginSplash, setShowLoginSplash] = useState(false);
+  const [postLoginCallback, setPostLoginCallback] = useState<(() => void) | null>(null);
   const [assignedSectorsForLogin, setAssignedSectorsForLogin] = useState<string[]>([]);
   const [selectedSectorForLogin, setSelectedSectorForLogin] = useState<string>("");
   const [sessionTerminatedNotice, setSessionTerminatedNotice] = useState<string | null>(null);
@@ -1392,60 +1410,66 @@ export default function App() {
 
     setHistoryStack([]);
 
-    // Redirecionamento automático baseado na alocação do utilizador
-    const isSuperBoss = isSuperBossUser(userData);
-    const isInstAdminAccount = isInstitutionalAdminAccount(userData);
-    const isHRBoss = isHRBossUser(userData);
-    const isTecnico = isTechnicianUser(userData);
+    // Função de redirecionamento executada após a conclusão dos 3 passos do splash de apresentação
+    const proceedToDestination = () => {
+      setShowLoginSplash(false);
 
-    if (isSuperBoss) {
-      // Administrador Geral ao aceder ao sistema vai direto à sua área de trabalho (Sistema Aberto)
-      // Mas se tiver mais opções (se for chefe também), ele escolhe por onde navegar
-      if (isChefeUser(userData)) {
-        setDashboardTitle("");
+      // Redirecionamento automático baseado na alocação do utilizador
+      const isSuperBoss = isSuperBossUser(userData);
+      const isInstAdminAccount = isInstitutionalAdminAccount(userData);
+      const isHRBoss = isHRBossUser(userData);
+      const isTecnico = isTechnicianUser(userData);
+
+      if (isSuperBoss) {
+        // Administrador Geral ao aceder ao sistema vai direto à sua área de trabalho (Sistema Aberto)
+        if (isChefeUser(userData)) {
+          setDashboardTitle("");
+          setView("admin_role_selection");
+        } else {
+          setDashboardTitle("Sistema");
+          setDashboardActiveItem(undefined);
+          setView("dashboard");
+        }
+      } else if (isInstAdminAccount) {
+        // Administrador da Instituição: direciona para o painel de escolha entre Administrador e Usuário Normal
         setView("admin_role_selection");
-      } else {
-        setDashboardTitle("Sistema");
-        setDashboardActiveItem(undefined);
+      } else if (isHRBoss) {
+        // Chefe da Repartição de Pessoal: direcionado diretamente para a área de trabalho da Repartição de Pessoal
+        setDashboardTitle("Repartição de Pessoal");
+        setDashboardActiveItem("Gestão de Pessoal");
         setView("dashboard");
-      }
-    } else if (isInstAdminAccount) {
-      // Administrador da Instituição: direciona para o painel de escolha entre Administrador e Usuário Normal
-      setView("admin_role_selection");
-    } else if (isHRBoss) {
-      // Chefe da Repartição de Pessoal: direcionado diretamente para a área de trabalho da Repartição de Pessoal
-      setDashboardTitle("Repartição de Pessoal");
-      setDashboardActiveItem("Gestão de Pessoal");
-      setView("dashboard");
-    } else if (isTecnico) {
-      // Técnicos devem sempre passar pela seleção de setor/área de trabalho
-      // Se não tiverem setores atribuídos, oferecemos os setores do departamento deles
-      const deptSectors = getSetoresByDepartamento(userData.departamento);
-      const available = (userData.setoresAtribuidos && userData.setoresAtribuidos.length > 0)
-        ? userData.setoresAtribuidos
-        : (deptSectors.length > 0 ? deptSectors : [userData.departamento || ""]);
-      
-      setAssignedSectorsForLogin(available);
-      setDashboardTitle(userData.departamento || userData.direcao || "Departamento de Património");
-      setView("sector_selection");
-    } else {
-      if (userData.setoresAtribuidos && Array.isArray(userData.setoresAtribuidos) && userData.setoresAtribuidos.length > 1) {
-        setAssignedSectorsForLogin(userData.setoresAtribuidos);
-        setSelectedSectorForLogin(userData.setoresAtribuidos[0]);
+      } else if (isTecnico) {
+        // Técnicos devem passar pela seleção de setor/área de trabalho
+        const deptSectors = getSetoresByDepartamento(userData.departamento);
+        const available = (userData.setoresAtribuidos && userData.setoresAtribuidos.length > 0)
+          ? userData.setoresAtribuidos
+          : (deptSectors.length > 0 ? deptSectors : [userData.departamento || ""]);
+        
+        setAssignedSectorsForLogin(available);
         setDashboardTitle(userData.departamento || userData.direcao || "Departamento de Património");
         setView("sector_selection");
       } else {
-        // Cada colaborador afetado, ao fazer login, será direcionado à sua área de trabalho afetado
-        const workspace = getUserWorkspace(userData);
-        if (workspace) {
-          setDashboardTitle(workspace);
-          setView("dashboard");
+        if (userData.setoresAtribuidos && Array.isArray(userData.setoresAtribuidos) && userData.setoresAtribuidos.length > 1) {
+          setAssignedSectorsForLogin(userData.setoresAtribuidos);
+          setSelectedSectorForLogin(userData.setoresAtribuidos[0]);
+          setDashboardTitle(userData.departamento || userData.direcao || "Departamento de Património");
+          setView("sector_selection");
         } else {
-          // Fallback caso não tenha área definida
-          setView("menu");
+          // Cada colaborador afetado, ao fazer login, será direcionado à sua área de trabalho
+          const workspace = getUserWorkspace(userData);
+          if (workspace) {
+            setDashboardTitle(workspace);
+            setView("dashboard");
+          } else {
+            setView("menu");
+          }
         }
       }
-    }
+    };
+
+    // Ativar o flash de apresentação de 3 páginas (Ano -> Logótipo -> Bem-vindo com dados e barra de %)
+    setPostLoginCallback(() => proceedToDestination);
+    setShowLoginSplash(true);
   };
 
   const handleSelectAdminRoleMode = (mode: string) => {
@@ -2193,6 +2217,21 @@ export default function App() {
         <BackupRestoreModal isOpen={showBackupModal} onClose={() => setShowBackupModal(false)} />
         <FooterInfoModal isOpen={showFooterInfoModal} onClose={() => setShowFooterInfoModal(false)} />
         {showDiagnosticPanel && <DiagnosticPanel onClose={() => setShowDiagnosticPanel(false)} />}
+        
+        {/* Flash de Apresentação Pós-Login em 3 Páginas (Ano -> Logótipo -> Bem-vindo com dados e barra %) */}
+        {showLoginSplash && currentUser && (
+          <LoginSplashSequence
+            user={extendedUser || currentUser}
+            instituicao={activeInst}
+            onComplete={() => {
+              if (postLoginCallback) {
+                postLoginCallback();
+              } else {
+                setShowLoginSplash(false);
+              }
+            }}
+          />
+        )}
         
         {sessionTerminatedNotice && (
           <div className="fixed inset-0 z-[999999] bg-[#0c1236]/85 backdrop-blur-md flex items-center justify-center p-4">

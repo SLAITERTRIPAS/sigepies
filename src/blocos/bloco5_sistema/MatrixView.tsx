@@ -16,6 +16,7 @@ import { FONTES_RECEITA, PRIORIDADES } from "../../constants/formOptions";
 import { isSuperBossUser, getAuthorizedActivities } from "../../lib/auth";
 import { isValidActivity } from "./plano/PlanoHelpers";
 import { firestoreService } from "../../lib/firestoreService";
+import { logAuditEvent } from "../../lib/auditService";
 import { getActivityTotal } from "../../lib/utils";
 import {
   getDirectionAbbreviation,
@@ -445,6 +446,18 @@ export default function MatrixView({
       alert("Apenas o Administrador pode realizar esta alteração.");
       return;
     }
+    
+    // Log de auditoria
+    await logAuditEvent({
+      entityId: id,
+      entityType: "MatrixActivity",
+      action: "modify",
+      timestamp: new Date().toISOString(),
+      userId: user?.uid || "unknown",
+      userName: user?.nome || user?.email || "unknown",
+      details: `Campo ${field} alterado para ${value}`
+    });
+
     if (onUpdateActivity) await onUpdateActivity(id, { [field]: value });
     else
       setActivities(

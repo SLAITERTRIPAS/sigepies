@@ -48,6 +48,7 @@ const EconomatoView = lazy(() => lazyRetry(() => import("../blocos/bloco4_servic
 const RegistarFuncionarioForm = lazy(() => lazyRetry(() => import("../blocos/bloco8_gerais/RegistarFuncionarioForm")));
 const LibraryVisitForm = lazy(() => lazyRetry(() => import("../blocos/bloco3_unidades_organicas/LibraryVisitForm")));
 const AcaoOrcamentalView = lazy(() => lazyRetry(() => import("./AcaoOrcamentalView")));
+const DashboardRH = lazy(() => import("./DashboardRH"));
 const PlanoWorkflowView = lazy(() => lazyRetry(() => import("../blocos/bloco5_sistema/PlanoWorkflowView")));
 const CalendarView = lazy(() => lazyRetry(() => import("../blocos/bloco5_sistema/CalendarView")));
 const GestaoExpedienteHistoricoView = lazy(() => lazyRetry(() => import("../blocos/bloco4_servicos_centrais/GestaoExpedienteHistoricoView")));
@@ -871,6 +872,13 @@ const ViewRendererInner: React.FC<ViewRendererProps> = ({
             onShowAlert={onShowAlert}
             onBack={goBack}
           />
+        </div>
+      );
+
+    case "painel_rh":
+      return (
+        <div className="w-full h-full overflow-y-auto scrollbar bg-slate-50 p-2 md:p-6">
+          <DashboardRH />
         </div>
       );
 

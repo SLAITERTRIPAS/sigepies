@@ -1,5 +1,20 @@
 {
   "entities": {
+    "AuditLog": {
+      "title": "Registo de Auditoria",
+      "description": "Log de ações de submissão, aprovação e alterações no Plano de Actividades",
+      "type": "object",
+      "properties": {
+        "entityId": { "type": "string", "maxLength": 128 },
+        "entityType": { "type": "string", "maxLength": 128 },
+        "action": { "type": "string", "maxLength": 50 },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 200 },
+        "details": { "type": "string", "maxLength": 5000 }
+      },
+      "required": ["entityId", "action", "timestamp", "userId", "userName"]
+    },
     "AccessAlert": {
       "title": "Alerta de Acesso Indevido",
       "description": "Registo de tentativa de acesso não autorizado a departamentos ou áreas restritas",
@@ -536,6 +551,10 @@
     "access_alerts": {
       "schema": "AccessAlert",
       "description": "Tentativas de acesso indevido e alertas de intrusão por departamento"
+    },
+    "audit_logs": {
+      "schema": "AuditLog",
+      "description": "Log de ações de auditoria no Plano de Actividades"
     }
   }
 }

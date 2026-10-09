@@ -98,16 +98,58 @@ export default function SystemPresentation({ onContinue }: SystemPresentationPro
           </span>
         </div>
 
-        {/* Centro: Relógio Digital com Borda Dourada */}
-        <div className="border border-amber-400/60 rounded-xl px-5 sm:px-7 py-1.5 bg-[#040826]/90 backdrop-blur-md text-center shadow-lg">
-          <div className="text-[11px] font-bold text-amber-400 tracking-wider">
-            {capitalizedDay}
-          </div>
-          <div className="text-base sm:text-lg font-black tracking-widest text-white font-mono leading-tight">
-            {timeString}
-          </div>
-          <div className="text-[10px] text-slate-300 tracking-wide font-sans">
-            {dateString}
+        {/* Centro: Relógio Digital com Borda Dourada e Logótipo de Fundo */}
+        <div className="border border-amber-400/60 rounded-2xl px-5 sm:px-7 py-2 bg-[#040826]/90 backdrop-blur-md text-center shadow-lg relative overflow-hidden group select-none min-w-[260px] sm:min-w-[290px]">
+          {systemLogo && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden p-1">
+              <img
+                src={systemLogo}
+                alt="Logótipo de Fundo"
+                className="w-full h-full max-h-[85%] max-w-[85%] object-contain opacity-25 filter brightness-110 contrast-125"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/40" />
+            </div>
+          )}
+          <div className="relative z-10 w-full flex flex-col items-center leading-none">
+            {/* Linha Superior: DIA DA SEMANA | HORA */}
+            <div className="w-full flex items-center justify-center gap-1.5 sm:gap-2">
+              <span 
+                className="text-[#FFB800] font-serif font-black text-xs tracking-[0.16em] uppercase whitespace-nowrap"
+                style={{ textShadow: "1.5px 1.5px 0px #000000" }}
+              >
+                {capitalizedDay.toUpperCase()}
+              </span>
+              
+              <span 
+                className="text-[#FFB800] font-black text-sm mx-1 select-none leading-none"
+                style={{ textShadow: "1.5px 1.5px 0px #000000" }}
+              >
+                |
+              </span>
+
+              <span 
+                className="text-white font-serif font-black text-base sm:text-lg tracking-[0.2em] tabular-nums whitespace-nowrap"
+                style={{ textShadow: "2px 2px 0px #000000" }}
+              >
+                {timeString.split('').join(' ')}
+              </span>
+            </div>
+
+            {/* Barra Divisória Horizontal Dourada */}
+            <div className="w-full h-[3px] bg-[#FFB800] rounded-full my-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />
+
+            {/* Linha Inferior: DATA POR EXTENSO */}
+            <div className="w-full text-center">
+              <span 
+                className="text-slate-100 font-serif font-bold text-[10px] sm:text-[11px] tracking-[0.22em] uppercase whitespace-nowrap"
+                style={{ textShadow: "1.5px 1.5px 0px #000000" }}
+              >
+                {dateString.toUpperCase()}
+              </span>
+            </div>
           </div>
         </div>
 

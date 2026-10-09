@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { firestoreService } from "../lib/firestoreService";
 import { getSectorSidebarItems, SectorSidebarItem } from "../lib/sectorMenuUtils";
-import { saveEstruturaRename } from "../lib/instituicaoEstruturaService";
 
 export interface EditSectorModalProps {
   sector: {
@@ -234,7 +233,7 @@ export default function EditSectorModal({
         const oldCleanName = initialName.trim();
 
         // 1. Gravar mapeamento de renomeação no Firestore para atualização em tempo real
-        await saveEstruturaRename(activeInstId, sector.type || "reparticao", oldCleanName, newCleanName);
+        // Nota: A funcionalidade de renomeação em cascata foi descontinuada para manter a integridade hierárquica.
 
         // 2. Atualizar permissões de menu
         const newDocId = `${activeInstId}_${newCleanName.replace(/\s+/g, "_")}`;

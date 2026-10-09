@@ -357,6 +357,16 @@ export default function MainHeader({
   // EXCETO se o logado for o Administrador Geral (que não pertence a nenhuma instituição e exibe o logotipo do sistema)
   const headerLogoToDisplay = isSuperAdmin ? effectiveSystemLogo : (validInstLogo || effectiveSystemLogo);
 
+  // Logótipo de fundo para o retângulo de horas:
+  // Se for o Administrador Geral -> Logótipo do sistema
+  // Caso contrário -> Logótipo da instituição do utilizador logado
+  const clockBackgroundLogo = React.useMemo(() => {
+    if (isSuperAdmin) {
+      return effectiveSystemLogo;
+    }
+    return validInstLogo || loggedInst?.logo || loggedInst?.logotipo || activeInst?.logo || effectiveSystemLogo;
+  }, [isSuperAdmin, effectiveSystemLogo, validInstLogo, loggedInst, activeInst]);
+
   const instName = isSuperAdmin ? "SIGEP" : (loggedInst?.nome || user?.instituicaoNome || "Instituição");
   const instAbreviatura = isSuperAdmin ? "ADMINISTRAÇÃO GERAL" : (loggedInst?.abreviatura || loggedInst?.sigla || instName);
 
@@ -652,20 +662,69 @@ export default function MainHeader({
             </div>
           </div>
 
-          {/* Center - Date & Time (Vinho Box) */}
+          {/* Center - Date & Time (Layout Oficial com Topo Dividido e Barra Dourada, Fundo Existente Mantido) */}
           <div 
-            className="hidden xl:flex flex-col items-center justify-center px-8 py-1.5 min-w-[280px] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10"
+            className="hidden md:flex relative overflow-hidden flex-col items-center justify-center px-5 lg:px-7 py-2 min-w-[280px] lg:min-w-[320px] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/20 group select-none transition-all duration-300"
             style={{ 
               backgroundColor: secondaryBg,
             }}
+            title={isSuperAdmin ? "Relógio Oficial - Sistema SIGEP" : `Relógio Oficial - ${instName}`}
           >
-            <div className="flex flex-col items-center gap-0">
-              <span className="text-[10px] font-black tracking-[0.2em] text-white/90 uppercase">
-                {dayOfWeek}, {dateStr.toUpperCase()}
-              </span>
-              <span className="text-2xl md:text-3xl font-black tracking-widest text-white tabular-nums drop-shadow-md">
-                {timeStr}
-              </span>
+            {/* Logótipo em marca d'água / fundo do retângulo de horas (preservado intacto) */}
+            {clockBackgroundLogo && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden p-1 select-none">
+                <img
+                  src={clockBackgroundLogo}
+                  alt="Logótipo de Fundo do Relógio"
+                  className="w-full h-full max-h-[85%] max-w-[85%] object-contain opacity-35 filter brightness-110 contrast-125 transition-transform duration-700 group-hover:scale-105"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                {/* Overlay sutil para garantir contraste e legibilidade cristalina do relógio */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-black/45 pointer-events-none" />
+              </div>
+            )}
+
+            <div className="relative z-10 w-full flex flex-col items-center leading-none">
+              {/* Linha Superior: DIA DA SEMANA | HORA COM ESPAÇAMENTO */}
+              <div className="w-full flex items-center justify-center gap-1.5 sm:gap-2">
+                <span 
+                  className="text-[#FFB800] font-serif font-black text-xs sm:text-[13px] tracking-[0.16em] uppercase whitespace-nowrap"
+                  style={{ textShadow: "1.5px 1.5px 0px #000000" }}
+                >
+                  {rawDayOfWeek.toUpperCase()}
+                </span>
+                
+                <span 
+                  className="text-[#FFB800] font-black text-sm sm:text-base mx-1 select-none leading-none"
+                  style={{ textShadow: "1.5px 1.5px 0px #000000" }}
+                >
+                  |
+                </span>
+
+                <span 
+                  className="text-white font-serif font-black text-base sm:text-lg tracking-[0.2em] tabular-nums whitespace-nowrap"
+                  style={{ textShadow: "2px 2px 0px #000000" }}
+                >
+                  {timeStr.split('').join(' ')}
+                </span>
+              </div>
+
+              {/* Barra Divisória Horizontal Dourada com cantos arredondados */}
+              <div 
+                className="w-full h-[3px] bg-[#FFB800] rounded-full my-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.6)]" 
+              />
+
+              {/* Linha Inferior: DATA COMPLETA POR EXTENSO */}
+              <div className="w-full text-center">
+                <span 
+                  className="text-slate-100 font-serif font-bold text-[10px] sm:text-[11px] tracking-[0.22em] uppercase whitespace-nowrap"
+                  style={{ textShadow: "1.5px 1.5px 0px #000000" }}
+                >
+                  {dateStr.toUpperCase()}
+                </span>
+              </div>
             </div>
           </div>
 
